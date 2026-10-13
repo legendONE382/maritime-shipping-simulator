@@ -34,7 +34,7 @@ export class ParticleField {
         void main(){
           vAlpha = aAlpha;
           vec4 mv = modelViewMatrix * vec4(position, 1.0);
-          gl_PointSize = aSize * (500.0 / max(2.0, -mv.z));
+          gl_PointSize = aSize * (400.0 / max(2.0, -mv.z));
           gl_Position = projectionMatrix * mv;
         }`,
       fragmentShader: `
@@ -89,7 +89,7 @@ export class ParticleField {
       this.pos[i * 3 + 1] += this.vel[i * 3 + 1] * dt;
       this.pos[i * 3 + 2] += this.vel[i * 3 + 2] * dt;
       this.size[i] = this.base[i] * (1 + (1 - k) * grow);
-      this.alpha[i] = k * k * 0.9;
+      this.alpha[i] = k * k * 0.18; // Make smoke more transparent
     }
     const g = this.points.geometry;
     (g.getAttribute('position') as THREE.BufferAttribute).needsUpdate = true;

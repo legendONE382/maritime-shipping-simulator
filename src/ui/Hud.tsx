@@ -399,6 +399,9 @@ export function Hud({
   onCamera,
   onNavy,
   onKey,
+  onZoomIn,
+  onZoomOut,
+  onResetCam,
 }: {
   telRef: React.MutableRefObject<Telemetry | null>;
   toasts: Toast[];
@@ -415,6 +418,9 @@ export function Hud({
   onCamera: () => void;
   onNavy: () => void;
   onKey: (code: string, down: boolean) => void;
+  onZoomIn?: () => void;
+  onZoomOut?: () => void;
+  onResetCam?: () => void;
 }) {
   const t = telRef.current;
   if (!t) return null;
@@ -528,10 +534,25 @@ export function Hud({
           </div>
 
           {/* top-right controls */}
-          <div className={`pointer-events-auto absolute flex gap-2 ${compact ? 'right-2 top-2' : 'right-4 top-4'}`}>
+          <div className={`pointer-events-auto absolute flex flex-wrap gap-2 ${compact ? 'right-2 top-2 max-w-[40vw] justify-end' : 'right-4 top-4'}`}>
             <button onClick={onMute} className={iconBtn} style={{ width: iconSize, height: iconSize }} title="Sound">
               {muted ? '🔇' : '🔊'}
             </button>
+            {touch && onZoomIn && (
+              <button onClick={onZoomIn} className={iconBtn} style={{ width: iconSize, height: iconSize }} title="Zoom In [+]">
+                +
+              </button>
+            )}
+            {touch && onZoomOut && (
+              <button onClick={onZoomOut} className={iconBtn} style={{ width: iconSize, height: iconSize }} title="Zoom Out [-]">
+                −
+              </button>
+            )}
+            {touch && onResetCam && (
+              <button onClick={onResetCam} className={iconBtn} style={{ width: iconSize, height: iconSize }} title="Reset Camera [R]">
+                ⟲
+              </button>
+            )}
             <button onClick={onCamera} className={iconBtn} style={{ width: iconSize, height: iconSize }} title="Camera [C]">
               🎥
             </button>
