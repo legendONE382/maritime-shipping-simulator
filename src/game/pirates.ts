@@ -539,4 +539,51 @@ export class PirateSystem {
     if (this.heli) out.push({ x: this.heli.pos.x, z: this.heli.pos.z, type: 'navy' });
     return out;
   }
+
+  /** Combat view of live hostiles: key, world position, kind, radius and hull HP. */
+  combatTargets(): { key: string; kind: 'skiff' | 'dhow'; x: number; z: number; radius: number; hitPoints: number }[] {
+    const out: { key: string; kind: 'skiff' | 'dhow'; x: number; z: number; radius: number; hitPoints: number }[] = [];
+    for (let i = 0; i < this.skiffs.length; i++) {
+      const s = this.skiffs[i];
+      if (s.state === 'flee') continue;
+      out.push({ key: `skiff-${s.eventId}-${i}`, kind: 'skiff', x: s.pos.x, z: s.pos.y, radius: 9, hitPoints: 72 });
+    }
+    for (let i = 0; i < this.dhows.length; i++) {
+      const d = this.dhows[i];
+      out.push({ key: `dhow-${d.eventId}-${i}`, kind: 'dhow', x: d.pos.x, z: d.pos.y, radius: 15, hitPoints: 160 });
+    }
+    return out;
+  }
+
+  /** A skiff destroyed by the player's guns: blow it out of the water. */
+  sinkSkiff(key: string) {
+    const i = Number(key.split('-')[2]);
+    const s = this.skiffs[i];
+    if (!s) return;
+    for (let k = 0; k < 26; k++) {
+      const a = Math.random() * Math.PI * 2;
+      const r = 4 + Math.random() * 12;
+      this.host.debris.spawn(s.pos.x + Math.cos(a) * r, 2 + Math.random() * 4, s.pos.y + Math.sin(a) * r, Math.cos(a) * (24 + r), 12 + Math.random() * 22, Math.sin(a) * (24 + r), 1.4, 2.6, 1);
+    }
+    for (let k = 0; k < 16; k++) this.host.spray.spawn(s.pos.x + (Math.random() - 0.5) * 20, 2, s.pos.y + (Math.random() - 0.5) * 20, 0, 10 + Math.random() * 14, 0, 1, 3, 0.8);
+    this.host.world.remove(s.obj);
+    this.skiffs.splice(i, 1);
+  }
+
+  /** A mothership destroyed by the player's guns. */
+  sinkDhow(key: string) {
+    const i = Number(key.split('-')[2]);
+    const d = this.dhows[i];
+    if (!d) return;
+    for (let k = 0; k < 60; k++) {
+      const a = Math.random() * Math.PI * 2;
+      const r = 8 + Math.random() * 26;
+      this.host.debris.spawn(d.pos.x + Math.cos(a) * r, 3 + Math.random() * 10, d.pos.y + Math.sin(a) * r, Math.cos(a) * (20 + r), 14 + Math.random() * 26, Math.sin(a) * (20 + r), 2.2, 3.6, 1);
+    }
+    for (let k = 0; k < 30; k++) this.host.spray.spawn(d.pos.x + (Math.random() - 0.5) * 44, 2, d.pos.y + (Math.random() - 0.5) * 44, 0, 10 + Math.random() * 18, 0, 1.4, 3.6, 0.85);
+    /* any skiffs still riding with her are orphaned to the open sea */
+    for (const s of this.skiffs) if (s.dhow === d) s.dhow = null;
+    this.host.world.remove(d.obj);
+    this.dhows.splice(i, 1);
+  }
 }

@@ -9,10 +9,12 @@ import { buildBuoy, buildDriftDebris, buildIceSkirt, buildMooredMine, buildReef,
 import { PirateSystem, type NavyState, type WorldMarker } from './pirates';
 import { TrafficSystem } from './traffic';
 import { WildlifeSystem } from './wildlife';
+import { CombatSystem, WEAPONS, type CombatStats, type Target, type TargetKind } from './combat';
 import { EVENT_META, starsFor, type ChoiceOption, type EndStats, type MissionChoice, type MissionDef, type MissionEvent, type Upgrades } from './missions';
 import { GENERIC_RADIO, RADIO, type Flags, type RadioCue } from './story';
 import { makePuffTexture, makeRainTexture } from './textures';
 
+export type { CombatStats } from './combat';
 export type { NavyState } from './pirates';
 
 /* ------------------------------------------------------------------ types */
@@ -115,6 +117,18 @@ export interface Telemetry {
   fouled: number;
   slowmo: boolean;
   choiceLeft: number;
+  /** action layer: currently selected weapon */
+  weapon: string;
+  weaponShort: string;
+  weaponHint: string;
+  weaponCooldown: number;
+  weaponHeat: number;
+  weaponOverheated: boolean;
+  weaponSlot: number;
+  /** live shells — used by the HUD tracer gauge */
+  shellsInFlight: number;
+  /** combat tallies accumulated this voyage */
+  combat: CombatStats;
 }
 
 export type AlertKind = 'info' | 'warn' | 'danger' | 'good';
@@ -237,7 +251,7 @@ function rng(seed: number) {
     t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
-}
+
 function fmtDist(d: number) {
   return d >= 1000 ? `${(d / 1000).toFixed(2)} km` : `${d.toFixed(0)} m`;
 }
@@ -301,6 +315,11 @@ export class Game {
   private pirates: PirateSystem;
   private traffic: TrafficSystem;
   private wildlife: WildlifeSystem;
+  private combat: CombatSystem;
+  private combatTargets = new Map<string, Target>();
+  private gunMounts: THREE.Object3D[] = [];
+  private ciws: THREE.Object3D | null = null;
+  private muzzleTimer = 0;
 
   private cbs: GameCallbacks;
   private mission: MissionDef | null = null;
@@ -455,6 +474,7 @@ export class Game {
     this.pirates = new PirateSystem(this);
     this.traffic = new TrafficSystem(this);
     this.wildlife = new WildlifeSystem(this);
+    this.combat = new CombatSystem(this);
 
     window.addEventListener('resize', this.handleResize);
     window.addEventListener('keydown', this.handleKeyDown);
@@ -649,6 +669,8 @@ export class Game {
 
     this.clearWorld();
     this.pirates.reset(mission.events.some((e) => e.kind === 'pirates'));
+    this.combat.reset();
+    this.combatTargets.clear();
     const R = rng(mission.id * 7919 + 17);
 
     // radio script and mid-voyage decisions
@@ -660,6 +682,8 @@ export class Game {
     this.radarBar = model.radarBar;
     this.funnelTop = model.funnelTop;
     this.nightLights = model.nightLights;
+    this.gunMounts = model.gunMounts ?? [];
+    this.ciws = model.ciwsTurret ?? null;
     this.shipTilt.add(model.group);
     this.shipYaw.add(this.shipTilt);
     this.world.add(this.shipYaw);
@@ -913,6 +937,8 @@ export class Game {
     this.setKey(e.code, true);
     if (e.code === 'KeyF' || e.code === 'Space') this.triggerFlare();
     if (e.code === 'KeyC') this.cycleCamera();
+    if (e.code === 'KeyQ') this.cycleWeapon();
+    if (e.code === 'KeyX' || e.code === 'KeyG') this.fireWeapon(false);
     if (e.code === 'KeyR') this.resetCamera();
     if (e.code === 'Equal' || e.code === 'NumpadAdd') this.zoomCamera(-50);
     if (e.code === 'Minus' || e.code === 'NumpadSubtract') this.zoomCamera(50);
@@ -926,6 +952,8 @@ export class Game {
 
   private handleKeyUp = (e: KeyboardEvent) => {
     this.setKey(e.code, false);
+    if (e.code === 'KeyX' || e.code === 'KeyG') this.combat.setHeld(false);
+    if (e.code === 'ShiftLeft' && this.combat.weapon.kind !== 'ciws') this.combat.setHeld(false);
   };
 
   private handleBlur = () => {
@@ -1129,6 +1157,49 @@ export class Game {
     } else {
       this.toast('LRAD discharged — no hostile contacts inside range.', 'info');
     }
+  }
+
+  /* ---------------------------------------------------- action combat -- */
+
+  get weaponSpecs() {
+    return WEAPONS;
+  }
+
+  selectWeapon(i: number) {
+    this.combat.selectWeapon(i);
+  }
+
+  cycleWeapon() {
+    this.combat.cycleWeapon();
+  }
+
+  /** Fire the active weapon. `held` keeps CIWS firing while the trigger is down. */
+  fireWeapon(held: boolean) {
+    if (this.paused || this.finished) return;
+    this.combat.setHeld(held);
+    if (held) return;
+    const fx = Math.cos(this.heading);
+    const fy = Math.sin(this.heading);
+    const side = Math.floor(performance.now() / 90) % 2 === 0 ? 1 : -1;
+    const mx = this.pos.x + fx * 52;
+    const mz = this.pos.y + fy * 52 + side * 12;
+    const launched = this.combat.fire(mx, 20, mz, this.heading, this.pos.x + fx * 420, this.pos.y + fy * 420);
+    if (launched === 0 && this.combat.overheated) this.toast('Barrel overheated — she is cooling.', 'warn');
+    else if (launched > 0) {
+      this.muzzleTimer = 0.08;
+      this.audio.init();
+      this.say('firing');
+    }
+  }
+
+  get combatTallies(): CombatStats {
+    return this.combat.stats;
+  }
+
+  /** Hostile just destroyed by the deck guns — stop its AI and log the kill. */
+  killTarget(key: string, kind: TargetKind) {
+    if (kind === 'skiff') this.pirates.sinkSkiff(key);
+    else this.pirates.sinkDhow(key);
   }
 
   choose(id: string, option: string) {
@@ -1401,6 +1472,9 @@ export class Game {
     this.pirates.update(dt);
     this.traffic.update(dt, hull, bow, stern);
     this.wildlife.update(dt, hull);
+    this.syncCombatTargets();
+    this.combat.update(dt);
+    this.animateWeaponMounts(dt);
 
     this.updateRaft(dt);
     this.checkWaypoints();
@@ -1931,6 +2005,67 @@ export class Game {
     }
   }
 
+  /* ----------------------------------------------------- action combat */
+
+  /** Mirror live pirate contacts into the combat target list each frame. */
+  private syncCombatTargets() {
+    const list = this.pirates.combatTargets();
+    const seen = new Set<string>();
+    for (const c of list) {
+      seen.add(c.key);
+      const existing = this.combatTargets.get(c.key);
+      if (existing) {
+        existing.x = c.x;
+        existing.z = c.z;
+      } else {
+        this.combatTargets.set(c.key, {
+          key: c.key,
+          kind: c.kind,
+          x: c.x,
+          z: c.z,
+          hitPoints: c.hitPoints,
+          maxHP: c.hitPoints,
+          r: c.radius,
+          alive: true,
+        });
+      }
+    }
+    for (const key of [...this.combatTargets.keys()]) if (!seen.has(key)) this.combatTargets.delete(key);
+    this.combat.targets = [...this.combatTargets.values()];
+  }
+
+  /** Animate the deck gun barrels and CIWS towards whatever they are tracking. */
+  private animateWeaponMounts(dt: number) {
+    const fx = Math.cos(this.heading);
+    const fy = Math.sin(this.heading);
+    const w = this.combat.weapon;
+    let trackX = this.pos.x + fx * 300;
+    let trackZ = this.pos.y + fy * 300;
+    const t = this.combat.nearestTarget(this.pos.x, this.pos.y, w.range);
+    if (t) {
+      trackX = t.x;
+      trackZ = t.z;
+    } else {
+      const s = this.combat.nearestShore(this.pos.x, this.pos.y, w.range * 1.4);
+      if (s) {
+        trackX = s.x;
+        trackZ = s.z;
+      }
+    }
+    /* barrels lean left/right when tracking, and pitch with the muzzle rise */
+    const rel = (trackX - this.pos.x) * -fy + (trackZ - this.pos.y) * fx;
+    const yaw = THREE.MathUtils.clamp(rel / 400, -1, 1) * 0.45;
+    for (const m of this.gunMounts) {
+      m.rotation.y = THREE.MathUtils.lerp(m.rotation.y, yaw, Math.min(1, dt * 3));
+      m.rotation.x = -this.muzzleTimer * 0.22;
+    }
+    if (this.ciws) {
+      this.ciws.rotation.y = THREE.MathUtils.lerp(this.ciws.rotation.y, -yaw * 1.6, Math.min(1, dt * 8));
+      this.ciws.rotation.x = -this.muzzleTimer * 0.3;
+    }
+    if (this.muzzleTimer > 0) this.muzzleTimer = Math.max(0, this.muzzleTimer - dt);
+  }
+
   /* -------------------------------------------------------------- raft -- */
 
   private updateRaft(dt: number) {
@@ -2333,6 +2468,15 @@ export class Game {
       fouled: Math.max(0, this.fouledT),
       slowmo: !!this.activeChoice,
       choiceLeft: this.activeChoice?.timeLeft ?? 0,
+      weapon: this.combat.weapon.label,
+      weaponShort: this.combat.weapon.short,
+      weaponHint: this.combat.weapon.hint,
+      weaponCooldown: this.combat.cooldown,
+      weaponHeat: this.combat.heat,
+      weaponOverheated: this.combat.overheated,
+      weaponSlot: this.combat.weaponIndex,
+      shellsInFlight: this.combat.shellsInFlight,
+      combat: this.combat.stats,
     });
   }
 
@@ -2355,6 +2499,7 @@ export class Game {
     this.renderer.domElement.removeEventListener('touchmove', this.handleTouchMove as any);
     this.renderer.domElement.removeEventListener('touchend', this.handleTouchEnd as any);
     this.traffic.clear();
+    this.combat.dispose();
     this.audio.dispose();
     this.ocean.dispose();
     this.scene.traverse((o) => {
@@ -2367,4 +2512,9 @@ export class Game {
     this.renderer.dispose();
     if (this.renderer.domElement.parentElement === this.container) this.container.removeChild(this.renderer.domElement);
   }
+
+  isLowSpec(): boolean {
+    return this.lowSpec;
+  }
 }
+
