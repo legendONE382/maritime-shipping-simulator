@@ -213,7 +213,7 @@ interface LiveChoice extends MissionChoice {
 
 /* --------------------------------------------------------------- helpers */
 
-const CAMERA_MODES = ['CHASE', 'BRIDGE', 'CINEMATIC', 'OVERHEAD'];
+const CAMERA_MODES = ['CHASE', 'BRIDGE', 'CINEMATIC', 'OVERHEAD', 'FREE'];
 const BASE_MAX_SPEED = 26;
 const KN = 1.94384 * 0.52;
 const DOCK_SPEED = 8.5;
@@ -380,8 +380,20 @@ export class Game {
   private fpsFrames = 0;
   private adaptCd = 4;
   private camMode = 0;
+  private camModeManual = false;
+  private camYaw = 0;
+  private camPitch = -0.3;
+  private camTargetYaw = 0;
+  private camTargetPitch = -0.3;
+  private camDist = 300;
+  private camTargetDist = 300;
   private camPos = new THREE.Vector3();
   private camLook = new THREE.Vector3();
+  private camDragging = false;
+  private camLastX = 0;
+  private camLastY = 0;
+  private camTouchDist = 0;
+  private camTouchCount = 0;
   private keys: Record<string, boolean> = {};
   private disposed = false;
   private idCounter = 1;
@@ -430,7 +442,7 @@ export class Game {
     this.wake = new ParticleField(this.lowSpec ? 400 : 700, this.puffTex, 0xe8f4ff, false);
     this.spray = new ParticleField(this.lowSpec ? 450 : 800, this.puffTex, 0xdff0ff, false);
     this.debris = new ParticleField(400, this.puffTex, 0xffb26b, true);
-    this.smoke = new ParticleField(this.lowSpec ? 120 : 260, this.puffTex, 0x2a2b2e, false);
+    this.smoke = new ParticleField(this.lowSpec ? 60 : 120, this.puffTex, 0xdddddd, false);
     this.scene.add(this.wake.points, this.spray.points, this.debris.points, this.smoke.points);
 
     this.rain = this.buildRain(this.lowSpec ? 1100 : 2200);
@@ -448,7 +460,14 @@ export class Game {
     window.addEventListener('keydown', this.handleKeyDown);
     window.addEventListener('keyup', this.handleKeyUp);
     window.addEventListener('blur', this.handleBlur);
-    this.renderer.domElement.addEventListener('pointerdown', this.handlePointer);
+    this.renderer.domElement.addEventListener('pointerdown', this.handlePointerDown);
+    this.renderer.domElement.addEventListener('pointermove', this.handlePointerMove);
+    this.renderer.domElement.addEventListener('pointerup', this.handlePointerUp);
+    this.renderer.domElement.addEventListener('pointercancel', this.handlePointerUp);
+    this.renderer.domElement.addEventListener('wheel', this.handleWheel, { passive: false });
+    this.renderer.domElement.addEventListener('touchstart', this.handleTouchStart, { passive: false });
+    this.renderer.domElement.addEventListener('touchmove', this.handleTouchMove, { passive: false });
+    this.renderer.domElement.addEventListener('touchend', this.handleTouchEnd, { passive: false });
     this.renderer.setAnimationLoop(this.loop);
   }
 
@@ -889,11 +908,14 @@ export class Game {
   }
 
   private handleKeyDown = (e: KeyboardEvent) => {
-    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault();
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'Equal', 'Minus', 'KeyR'].includes(e.code)) e.preventDefault();
     if (e.repeat) return;
     this.setKey(e.code, true);
     if (e.code === 'KeyF' || e.code === 'Space') this.triggerFlare();
     if (e.code === 'KeyC') this.cycleCamera();
+    if (e.code === 'KeyR') this.resetCamera();
+    if (e.code === 'Equal' || e.code === 'NumpadAdd') this.zoomCamera(-50);
+    if (e.code === 'Minus' || e.code === 'NumpadSubtract') this.zoomCamera(50);
     if (e.code === 'KeyH') this.horn();
     if (e.code === 'KeyV') this.callNavy();
     if (this.activeChoice && (e.code === 'Digit1' || e.code === 'Digit2')) {
@@ -910,18 +932,167 @@ export class Game {
     this.keys = {};
   };
 
-  private handlePointer = () => {
+  private handlePointerDown = (e: PointerEvent) => {
     this.audio.init();
     this.audio.resume();
+    if (e.button === 0 && !this.paused) {
+      this.camDragging = true;
+      this.camLastX = e.clientX;
+      this.camLastY = e.clientY;
+      this.camTouchCount = 1;
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+      e.preventDefault();
+    }
+  };
+  private handlePointerMove = (e: PointerEvent) => {
+    if (!this.camDragging || this.paused) return;
+    const dx = e.clientX - this.camLastX;
+    const dy = e.clientY - this.camLastY;
+    this.camLastX = e.clientX;
+    this.camLastY = e.clientY;
+    this.camTargetYaw += dx * 0.005;
+    this.camTargetPitch += dy * 0.003;
+    this.camTargetPitch = THREE.MathUtils.clamp(this.camTargetPitch, -1.2, 0.2);
+    if (!this.camModeManual) {
+      this.camModeManual = true;
+      if (this.camMode !== CAMERA_MODES.indexOf('FREE')) {
+        this.camMode = CAMERA_MODES.indexOf('FREE');
+        if (this.camMode < 0) this.camMode = CAMERA_MODES.length - 1;
+        this.toast('Camera · FREE', 'info');
+      }
+    }
+    e.preventDefault();
+  };
+  private handlePointerUp = (e: PointerEvent) => {
+    this.camDragging = false;
+    try {
+      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    } catch {}
+    this.camTouchCount = 0;
+    this.camTouchDist = 0;
+  };
+  private handleWheel = (e: WheelEvent) => {
+    if (this.paused) return;
+    const delta = e.deltaY * 0.001;
+    this.camTargetDist += delta * 200;
+    this.camTargetDist = THREE.MathUtils.clamp(this.camTargetDist, 80, 800);
+    if (!this.camModeManual) {
+      this.camModeManual = true;
+      if (this.camMode !== CAMERA_MODES.indexOf('FREE')) {
+        this.camMode = CAMERA_MODES.indexOf('FREE');
+        if (this.camMode < 0) this.camMode = CAMERA_MODES.length - 1;
+        this.toast('Camera · FREE', 'info');
+      }
+    }
+    e.preventDefault();
+  };
+  private handleTouchStart = (e: TouchEvent) => {
+    if (this.paused) return;
+    if (e.touches.length === 1) {
+      this.camDragging = true;
+      this.camLastX = e.touches[0].clientX;
+      this.camLastY = e.touches[0].clientY;
+      this.camTouchCount = 1;
+      this.camTouchDist = 0;
+    } else if (e.touches.length === 2) {
+      this.camDragging = true;
+      this.camTouchCount = 2;
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      this.camTouchDist = Math.hypot(dx, dy);
+    }
+    this.audio.init();
+    this.audio.resume();
+    e.preventDefault();
+  };
+  private handleTouchMove = (e: TouchEvent) => {
+    if (!this.camDragging || this.paused) return;
+    if (e.touches.length === 1 && this.camTouchCount === 1) {
+      const dx = e.touches[0].clientX - this.camLastX;
+      const dy = e.touches[0].clientY - this.camLastY;
+      this.camLastX = e.touches[0].clientX;
+      this.camLastY = e.touches[0].clientY;
+      this.camTargetYaw += dx * 0.006;
+      this.camTargetPitch += dy * 0.004;
+      this.camTargetPitch = THREE.MathUtils.clamp(this.camTargetPitch, -1.2, 0.2);
+    } else if (e.touches.length === 2 && this.camTouchCount === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const dist = Math.hypot(dx, dy);
+      if (this.camTouchDist > 0) {
+        const scale = this.camTouchDist / dist;
+        this.camTargetDist *= scale;
+        this.camTargetDist = THREE.MathUtils.clamp(this.camTargetDist, 80, 800);
+      }
+      this.camTouchDist = dist;
+      if (!this.camModeManual) {
+        this.camModeManual = true;
+        if (this.camMode !== CAMERA_MODES.indexOf('FREE')) {
+          this.camMode = CAMERA_MODES.indexOf('FREE');
+          if (this.camMode < 0) this.camMode = CAMERA_MODES.length - 1;
+          this.toast('Camera · FREE', 'info');
+        }
+      }
+    }
+    if (!this.camModeManual) {
+      this.camModeManual = true;
+      if (this.camMode !== CAMERA_MODES.indexOf('FREE')) {
+        this.camMode = CAMERA_MODES.indexOf('FREE');
+        if (this.camMode < 0) this.camMode = CAMERA_MODES.length - 1;
+        this.toast('Camera · FREE', 'info');
+      }
+    }
+    e.preventDefault();
+  };
+  private handleTouchEnd = (e: TouchEvent) => {
+    this.camDragging = false;
+    this.camTouchCount = 0;
+    this.camTouchDist = 0;
+    if (e.touches.length === 0) {
+      this.camDragging = false;
+    }
   };
 
   cycleCamera() {
+    this.camModeManual = false;
     this.camMode = (this.camMode + 1) % CAMERA_MODES.length;
-    this.toast('Camera · ' + CAMERA_MODES[this.camMode], 'info');
+    const mode = CAMERA_MODES[this.camMode];
+    if (mode === 'FREE') {
+      this.camTargetYaw = this.camYaw;
+      this.camTargetPitch = this.camPitch;
+    }
+    this.toast('Camera · ' + mode, 'info');
   }
 
   setCameraMode(i: number) {
+    this.camModeManual = false;
     this.camMode = i % CAMERA_MODES.length;
+    const mode = CAMERA_MODES[this.camMode];
+    if (mode === 'FREE') {
+      this.camTargetYaw = this.camYaw;
+      this.camTargetPitch = this.camPitch;
+    }
+  }
+
+  resetCamera() {
+    this.camModeManual = false;
+    this.camMode = CAMERA_MODES.indexOf('CHASE');
+    if (this.camMode < 0) this.camMode = 0;
+    this.camTargetDist = 300;
+    this.camTargetYaw = 0;
+    this.camTargetPitch = -0.25;
+    this.toast('Camera reset', 'info');
+  }
+
+  zoomCamera(delta: number) {
+    this.camTargetDist += delta;
+    this.camTargetDist = THREE.MathUtils.clamp(this.camTargetDist, 80, 800);
+    this.camModeManual = true;
+    if (this.camMode !== CAMERA_MODES.indexOf('FREE')) {
+      this.camMode = CAMERA_MODES.indexOf('FREE');
+      if (this.camMode < 0) this.camMode = CAMERA_MODES.length - 1;
+      this.toast('Camera · FREE', 'info');
+    }
   }
 
   horn() {
@@ -1147,22 +1318,23 @@ export class Game {
   }
 
   private updateSmoke(dt: number) {
-    if (this.funnelTop && Math.random() < dt * (this.paused ? 14 : 22)) {
+    if (this.funnelTop && Math.random() < dt * (this.paused ? 6 : 10)) {
       this.funnelTop.getWorldPosition(this.shipTmp);
-      const burn = 0.5 + Math.max(0, this.throttle) * 0.9;
+      const burn = 0.4 + Math.max(0, this.throttle) * 0.5;
+      const speed = Math.abs(this.speed) / this.maxSpeed;
       this.smoke.spawn(
-        this.shipTmp.x + (Math.random() - 0.5) * 2,
+        this.shipTmp.x + (Math.random() - 0.5) * 1.5,
         this.shipTmp.y + 1,
-        this.shipTmp.z + (Math.random() - 0.5) * 2,
-        -5 - this.env * 8 + (Math.random() - 0.5) * 1.5,
-        4.5 + Math.random() * 2.5 * burn,
-        2 + (Math.random() - 0.5) * 2,
-        4.5 + Math.random() * 2.5,
-        6 + Math.random() * 3,
-        0.5 * Math.min(1, burn)
+        this.shipTmp.z + (Math.random() - 0.5) * 1.5,
+        (-2 - this.env * 3 - speed * 2) + (Math.random() - 0.5) * 1,
+        (2 + Math.random() * 1.5 * burn + speed * 1.5),
+        (1 + (Math.random() - 0.5) * 1),
+        (1.5 + Math.random() * 0.8),   // shorter lifetime
+        (2.5 + Math.random() * 1.0),   // smaller size
+        (0.08 * Math.min(1, burn))   // lower opacity
       );
     }
-    this.smoke.update(dt, 0.25, 3.8);
+    this.smoke.update(dt, 0.08, 0.9);
   }
 
   private updateBobbers() {
@@ -1946,11 +2118,26 @@ export class Game {
         const a = (idle ? performance.now() / 1000 : this.elapsed) * 0.11;
         want = new THREE.Vector3(this.pos.x + Math.cos(a) * 240, 40 + Math.sin(a * 0.7) * 16 + bob, this.pos.y + Math.sin(a) * 240);
         look = new THREE.Vector3(this.pos.x + fx * 30, 18, this.pos.y + fy * 30);
-      } else {
+      } else if (mode === 'OVERHEAD') {
         want = new THREE.Vector3(this.pos.x - fx * 40, 520, this.pos.y - fy * 40);
         look = new THREE.Vector3(this.pos.x + fx * 120, 0, this.pos.y + fy * 120);
+      } else {
+        // FREE camera - orbit around ship
+        this.camYaw += (this.camTargetYaw - this.camYaw) * Math.min(1, dt * 5);
+        this.camPitch += (this.camTargetPitch - this.camPitch) * Math.min(1, dt * 5);
+        this.camDist += (this.camTargetDist - this.camDist) * Math.min(1, dt * 6);
+        this.camYaw = this.camYaw % (Math.PI * 2);
+        const cy = Math.cos(this.camYaw);
+        const sy = Math.sin(this.camYaw);
+        const cp = Math.cos(this.camPitch);
+        const sp = Math.sin(this.camPitch);
+        const dx = cy * cp * this.camDist;
+        const dy = sp * this.camDist;
+        const dz = sy * cp * this.camDist;
+        want = new THREE.Vector3(this.pos.x + dx, this.pos.y + dy + heave * 0.2, this.pos.y + dz);
+        look = new THREE.Vector3(this.pos.x + fx * 60, this.shipTilt.position.y + 15, this.pos.y + fy * 60);
       }
-      const k = idle ? Math.min(1, dt * 2) : Math.min(1, dt * (mode === 'BRIDGE' ? 6 : 2.8));
+      const k = idle ? Math.min(1, dt * 2) : Math.min(1, dt * (mode === 'BRIDGE' ? 6 : (mode === 'FREE' ? 4 : 2.8)));
       this.camPos.lerp(want, k);
       this.camLook.lerp(look, Math.min(1, dt * 3.2));
     }
@@ -2159,7 +2346,14 @@ export class Game {
     window.removeEventListener('keydown', this.handleKeyDown);
     window.removeEventListener('keyup', this.handleKeyUp);
     window.removeEventListener('blur', this.handleBlur);
-    this.renderer.domElement.removeEventListener('pointerdown', this.handlePointer);
+    this.renderer.domElement.removeEventListener('pointerdown', this.handlePointerDown);
+    this.renderer.domElement.removeEventListener('pointermove', this.handlePointerMove);
+    this.renderer.domElement.removeEventListener('pointerup', this.handlePointerUp);
+    this.renderer.domElement.removeEventListener('pointercancel', this.handlePointerUp);
+    this.renderer.domElement.removeEventListener('wheel', this.handleWheel);
+    this.renderer.domElement.removeEventListener('touchstart', this.handleTouchStart as any);
+    this.renderer.domElement.removeEventListener('touchmove', this.handleTouchMove as any);
+    this.renderer.domElement.removeEventListener('touchend', this.handleTouchEnd as any);
     this.traffic.clear();
     this.audio.dispose();
     this.ocean.dispose();

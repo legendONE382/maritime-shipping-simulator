@@ -394,6 +394,9 @@ export default function App() {
           onCamera={() => gameRef.current?.cycleCamera()}
           onNavy={() => gameRef.current?.callNavy()}
           onKey={(c, d) => gameRef.current?.setKey(c, d)}
+          onZoomIn={() => gameRef.current?.zoomCamera(-60)}
+          onZoomOut={() => gameRef.current?.zoomCamera(60)}
+          onResetCam={() => gameRef.current?.resetCamera()}
         />
       )}
 

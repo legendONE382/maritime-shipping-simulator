@@ -65,7 +65,7 @@ export function Controls({ touch }: { touch: boolean }) {
         <Key>V</Key> Call navy helicopter
       </div>
       <div className="flex items-center gap-2">
-        <Key>C</Key> Camera · <Key>H</Key> Horn
+        <Key>C</Key> Camera cycle · <Key>H</Key> Horn · Mouse wheel/drag for free-look (when unlocked)
       </div>
       <div className="flex items-center gap-2">
         <Key>ESC</Key> Pause
