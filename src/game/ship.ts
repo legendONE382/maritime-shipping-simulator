@@ -214,6 +214,7 @@ interface Mats {
   glass: THREE.MeshStandardMaterial;
   black: THREE.MeshStandardMaterial;
   dark: THREE.MeshStandardMaterial;
+  darkMetal: THREE.MeshStandardMaterial;
   rail: THREE.MeshStandardMaterial;
   deck: THREE.MeshStandardMaterial;
   hatch: THREE.MeshStandardMaterial;
@@ -236,6 +237,7 @@ function mats(): Mats {
     glass: share(new THREE.MeshStandardMaterial({ color: 0x0c1824, roughness: 0.08, metalness: 0.85 })),
     black: std(0x131517, 0.7, 0.2),
     dark: std(0x2a2f35, 0.55, 0.6),
+    darkMetal: std(0x15171a, 0.25, 0.85),
     rail: std(0xdadfe3, 0.5, 0.4),
     deck: share(new THREE.MeshStandardMaterial({ color: 0xffffff, map: makeSteelTexture('#7a4034', 0.09), roughness: 0.85, metalness: 0.1 })),
     hatch: share(new THREE.MeshStandardMaterial({ color: 0xffffff, map: makeSteelTexture('#7d848a', 0.07), roughness: 0.78, metalness: 0.2 })),
@@ -340,6 +342,8 @@ export interface ShipModel {
   radarBar: THREE.Object3D;
   funnelTop: THREE.Object3D;
   nightLights: THREE.Sprite[];
+  gunMounts: THREE.Object3D[];
+  ciwsTurret: THREE.Object3D | null;
 }
 
 export function buildShip(opts: ShipOptions): ShipModel {
@@ -621,6 +625,44 @@ export function buildShip(opts: ShipOptions): ShipModel {
     nightLights.push(s);
   }
 
+  /* dual-purpose deck gun mounts (forward, amidships port/starboard) */
+  const gunMounts: THREE.Object3D[] = [];
+  for (const z of [-11.5, 11.5]) {
+    const mount = new THREE.Group();
+    const baseY = deckY(sAt(60)) + 3;
+    const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.55, 4.2, 12), M.darkMetal);
+    tube.rotation.z = Math.PI / 2;
+    tube.position.set(0, 0.6, 0);
+    tube.castShadow = true;
+    mount.add(tube);
+    const shield = new THREE.Mesh(new THREE.RingGeometry(0.9, 2.2, 16), M.lightGrey);
+    shield.rotation.y = Math.PI / 2;
+    shield.position.set(0.9, 0.55, 0);
+    shield.castShadow = true;
+    mount.add(shield);
+    mount.position.set(60, baseY, z);
+    mount.userData = { side: Math.sign(z) };
+    group.add(mount);
+    gunMounts.push(mount);
+  }
+
+  /* CIWS (Phalanx-style) turret above the bridge for missile/skp defense */
+  let ciws: THREE.Object3D | null = null;
+  const ciwsBase = new THREE.Group();
+  const cy = roof + 5;
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(1.8, 2.4, 1.6, 16), M.darkMetal);
+  base.position.y = cy;
+  base.castShadow = true;
+  ciwsBase.add(base);
+  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 4.2, 12), M.darkMetal);
+  barrel.rotation.z = Math.PI / 2;
+  barrel.position.y = cy + 1.4;
+  barrel.castShadow = true;
+  ciwsBase.add(barrel);
+  ciwsBase.position.set(tx + 2, 0, 0);
+  group.add(ciwsBase);
+  ciws = ciwsBase;
+
   /* shadows */
   group.traverse((obj) => {
     const m = obj as THREE.Mesh;
@@ -630,5 +672,5 @@ export function buildShip(opts: ShipOptions): ShipModel {
     }
   });
 
-  return { group, radarBar, funnelTop, nightLights };
+  return { group, radarBar, funnelTop, nightLights, gunMounts, ciwsTurret: ciws };
 }
