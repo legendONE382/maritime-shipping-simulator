@@ -251,6 +251,7 @@ function rng(seed: number) {
     t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
+}
 
 function fmtDist(d: number) {
   return d >= 1000 ? `${(d / 1000).toFixed(2)} km` : `${d.toFixed(0)} m`;
@@ -2516,5 +2517,5 @@ export class Game {
   isLowSpec(): boolean {
     return this.lowSpec;
   }
-}
 
+}
