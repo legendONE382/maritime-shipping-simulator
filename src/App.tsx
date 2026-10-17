@@ -373,6 +373,11 @@ export default function App() {
     };
   }, [pause]);
 
+  const toggleFullscreen = useCallback(() => {
+    if (document.fullscreenElement) void document.exitFullscreen();
+    else void document.documentElement.requestFullscreen?.();
+  }, []);
+
   const inGame = phase === 'play' || phase === 'paused';
   const showRotate = layout.touch && layout.portrait && inGame && !rotateDismissed;
   const award = awards.length ? ACHIEVEMENTS.find((a) => a.id === awards[0]) : null;
@@ -399,6 +404,7 @@ export default function App() {
           onCamera={() => gameRef.current?.cycleCamera()}
           onNavy={() => gameRef.current?.callNavy()}
           onWeapon={(i) => gameRef.current?.selectWeapon(i)}
+          onFullscreen={toggleFullscreen}
           onKey={(c, d) => gameRef.current?.setKey(c, d)}
           onZoomIn={() => gameRef.current?.zoomCamera(-60)}
           onZoomOut={() => gameRef.current?.zoomCamera(60)}

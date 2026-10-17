@@ -525,6 +525,7 @@ export function Hud({
   onCamera,
   onNavy,
   onWeapon,
+  onFullscreen,
   onKey,
   onZoomIn,
   onZoomOut,
@@ -545,6 +546,7 @@ export function Hud({
   onCamera: () => void;
   onNavy: () => void;
   onWeapon: (i: number) => void;
+  onFullscreen?: () => void;
   onKey: (code: string, down: boolean) => void;
   onZoomIn?: () => void;
   onZoomOut?: () => void;
@@ -684,6 +686,11 @@ export function Hud({
             <button onClick={onCamera} className={iconBtn} style={{ width: iconSize, height: iconSize }} title="Camera [C]">
               🎥
             </button>
+            {onFullscreen && (
+              <button onClick={onFullscreen} className={iconBtn} style={{ width: iconSize, height: iconSize }} title="Fullscreen [F11]">
+                ⛶
+              </button>
+            )}
             <button onClick={onPause} className={iconBtn} style={{ width: iconSize, height: iconSize }} title="Pause [Esc]">
               ❚❚
             </button>
