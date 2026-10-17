@@ -2173,7 +2173,7 @@ export class Game {
 
   /* ----------------------------------------------------- action combat */
 
-  /** Feed the crosshair into the combat system: mouse ray to the sea plane, or soft-lock on touch. */
+  /** Feed the crosshair into the combat system: ray-vs-hostile spheres first, then the sea plane, or soft-lock on touch. */
   private updateAim(rawDt: number) {
     this.aimAge += rawDt;
     const w = this.combat.weapon;
@@ -2181,10 +2181,50 @@ export class Game {
       this.camera.updateMatrixWorld();
       this.raycaster.setFromCamera(this.aimNdc, this.camera);
       const ray = this.raycaster.ray;
-      if (ray.direction.y < -0.002) {
-        const t = -ray.origin.y / ray.direction.y;
+      const o = ray.origin;
+      const d = ray.direction;
+      /* pick the hostile the reticle is actually over: nearest sphere hit along the ray.
+         (the water-plane fallback used to put aim 300-900 m BEHIND whatever you pointed at —
+         at grazing angles every shot overshot the target.) */
+      let hitX = 0;
+      let hitZ = 0;
+      let hitD = Infinity;
+      const consider = (x: number, y: number, z: number, r: number) => {
+        const cx = x - o.x;
+        const cy = y - o.y;
+        const cz = z - o.z;
+        const t = cx * d.x + cy * d.y + cz * d.z;
+        if (t < 20) return;
+        const px = o.x + d.x * t - x;
+        const py = o.y + d.y * t - y;
+        const pz = o.z + d.z * t - z;
+        const q = Math.hypot(px, py, pz);
+        if (q < r && t < hitD) {
+          hitD = t;
+          hitX = x;
+          hitZ = z;
+        }
+      };
+      const px = this.pos.x;
+      const pz = this.pos.y;
+      for (const t of this.combat.targets) {
+        if (!t.alive) continue;
+        if (Math.hypot(t.x - px, t.z - pz) > 2200) continue;
+        consider(t.x, 3, t.z, Math.max(46, t.r * 4));
+      }
+      for (const s of this.combat.shore) {
+        if (!s.alive) continue;
+        if (Math.hypot(s.x - px, s.z - pz) > 2400) continue;
+        consider(s.x, 10, s.z, Math.max(60, s.radius * 3));
+      }
+      if (hitD < Infinity) {
+        this.combat.setAim(hitX, hitZ);
+        return;
+      }
+      if (d.y < -0.002) {
+        const t = -o.y / d.y;
         if (t > 1 && t < 9000) {
-          this.combat.setAim(ray.origin.x + ray.direction.x * t, ray.origin.z + ray.direction.z * t);
+          this.combat.setAim(o.x + d.x * t, o.z + d.z * t);
           return;
         }
       }

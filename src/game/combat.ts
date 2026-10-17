@@ -349,7 +349,7 @@ export class CombatSystem {
     host.world.add(this.tracers.points);
     host.world.add(this.bursts.points);
     /* visible ordnance: cheap mesh pools so shells, missiles and warheads read in 3D */
-    const shellGeo = new THREE.CylinderGeometry(0.4, 0.4, 3.8, 5);
+    const shellGeo = new THREE.CylinderGeometry(0.6, 0.6, 9.5, 5);
     shellGeo.rotateZ(Math.PI / 2);
     this.matCannon = new THREE.MeshBasicMaterial({ color: 0xffd9a0 });
     this.matCiws = new THREE.MeshBasicMaterial({ color: 0xb8ecff });
@@ -361,11 +361,11 @@ export class CombatSystem {
       host.world.add(m);
       this.shellMeshes.push(m);
     }
-    const missileBody = new THREE.CylinderGeometry(0.55, 0.42, 7.2, 7);
+    const missileBody = new THREE.CylinderGeometry(0.85, 0.6, 13.5, 7);
     missileBody.rotateZ(Math.PI / 2);
-    const missileBodyCones = new THREE.ConeGeometry(0.55, 1.9, 7);
+    const missileBodyCones = new THREE.ConeGeometry(0.85, 3.2, 7);
     missileBodyCones.rotateZ(-Math.PI / 2);
-    missileBodyCones.translate(4.5, 0, 0);
+    missileBodyCones.translate(8.2, 0, 0);
     const missileMat = new THREE.MeshStandardMaterial({ color: 0xd8dde2, roughness: 0.35, metalness: 0.55, emissive: 0x332a18 });
     for (let i = 0; i < 6; i++) {
       const m = new THREE.Mesh(missileBody, missileMat);
@@ -685,7 +685,7 @@ export class CombatSystem {
         targetKey: key,
         kind: w.kind,
       });
-      this.tracers.push(sx, sy, sz, w.kind === 'ciws' ? CIWS_COLOR : CANNON_COLOR, 1, w.kind === 'ciws' ? 0.9 : 2.1);
+      this.tracers.push(sx, sy, sz, w.kind === 'ciws' ? CIWS_COLOR : CANNON_COLOR, 1, w.kind === 'ciws' ? 1.4 : 3.0);
     }
 
     this.flashes.push({ x: sx, y: sy, z: sz, life: 0, max: 0.16, color: MUZZLE_COLOR, size: 26 });
@@ -853,7 +853,7 @@ export class CombatSystem {
         s.x += s.vx * dt;
         s.y += s.vy * dt;
         s.z += s.vz * dt;
-        this.tracers.push(s.x, s.y, s.z, s.enemy ? ENEMY_COLOR : s.kind === 'ciws' ? CIWS_COLOR : CANNON_COLOR, 0.85, s.kind === 'ciws' ? 1 : 2.2);
+        this.tracers.push(s.x, s.y, s.z, s.enemy ? ENEMY_COLOR : s.kind === 'ciws' ? CIWS_COLOR : CANNON_COLOR, 0.9, s.kind === 'ciws' ? 1.6 : 3.4);
       }
 
       let consumed = false;
