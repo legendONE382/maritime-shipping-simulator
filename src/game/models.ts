@@ -67,7 +67,8 @@ export function buildTrafficShip(): THREE.Group {
     texWidth: 1024,
   });
   const wrap = new THREE.Group();
-  model.group.scale.setScalar(0.74);
+  /* 0.74 left every other vessel looking half-scale beside the player's own hull */
+  model.group.scale.setScalar(0.9);
   wrap.add(model.group);
   return wrap;
 }
@@ -215,6 +216,8 @@ function foamCollar(size: number, opacity: number) {
 }
 
 export function buildRock(scale = 1): THREE.Group {
+  /* game-feel: nav rocks read as pebbles from the bridge at honest scale — push them up */
+  scale *= 1.45;
   const g = new THREE.Group();
   for (let i = 0; i < 5; i++) {
     const r = 4 + Math.random() * 5;
@@ -236,6 +239,8 @@ export function buildRock(scale = 1): THREE.Group {
 }
 
 export function buildIceberg(scale = 1): THREE.Group {
+  /* bergs must loom — at ocean distances even the big ones vanished into the swell */
+  scale *= 1.5;
   const g = new THREE.Group();
   for (let i = 0; i < 3; i++) {
     const r = 8 + Math.random() * 6;

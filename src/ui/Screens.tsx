@@ -36,10 +36,13 @@ export function Controls({ touch }: { touch: boolean }) {
       <div className="grid grid-cols-2 gap-x-5 gap-y-1.5 text-[11px] text-slate-300/85">
         <div>◀ ▶ Rudder</div>
         <div>▲ ▼ Engine telegraph</div>
-        <div>💦 Hold to fire hoses</div>
-        <div>📡 LRAD scatters skiffs</div>
-        <div>🚁 Call the navy (once)</div>
-        <div>⚡ Hold for emergency power</div>
+        <div>GUN · FIRE — tap · hold to spray</div>
+        <div>MSL — lock a contact, then launch</div>
+        <div>WPN chip — cycles the mounts</div>
+        <div>HOSE — hold to run the fire mains</div>
+        <div>LRAD — scatter the skiffs</div>
+        <div>HELO — navy picket (once per voyage)</div>
+        <div>ENG — hold for emergency power</div>
       </div>
     );
   return (
@@ -53,22 +56,26 @@ export function Controls({ touch }: { touch: boolean }) {
         <Key>D</Key> Rudder
       </div>
       <div className="flex items-center gap-2">
+        <Key>LMB</Key>
+        <Key>SPACE</Key> Fire · hold for auto
+      </div>
+      <div className="flex items-center gap-2">
+        <Key>1</Key>
+        <Key>2</Key>
+        <Key>3</Key>
+        <Key>Q</Key> Weapons
+      </div>
+      <div className="flex items-center gap-2">
         <Key>SHIFT</Key> Emergency power
       </div>
       <div className="flex items-center gap-2">
         <Key>E</Key> Fire hoses (hold)
       </div>
       <div className="flex items-center gap-2">
-        <Key>F</Key> LRAD acoustic burst
+        <Key>F</Key> LRAD · <Key>V</Key> Navy helo
       </div>
       <div className="flex items-center gap-2">
-        <Key>V</Key> Call navy helicopter
-      </div>
-      <div className="flex items-center gap-2">
-        <Key>C</Key> Camera cycle · <Key>H</Key> Horn · Mouse wheel/drag for free-look (when unlocked)
-      </div>
-      <div className="flex items-center gap-2">
-        <Key>ESC</Key> Pause
+        <Key>C</Key> Camera · drag/wheel free-look · <Key>H</Key> Horn · <Key>ESC</Key> Pause
       </div>
     </div>
   );
@@ -149,7 +156,64 @@ function MissionCard({ m, active, locked, stars, onClick, sub }: { m: MissionDef
 
 type Tab = 'story' | 'contracts' | 'shipyard' | 'awards';
 
+/* ------------------------------------------------------------- about --- */
+
+/** The long-form manual / pitch: everything a player might want to read, one click away. */
+function AboutModal({ touch, onClose }: { touch: boolean; onClose: () => void }) {
+  return (
+    <div className="absolute inset-0 z-30 overflow-y-auto bg-[#010b12]/85 backdrop-blur-sm" onClick={onClose}>
+      <div className="mx-auto flex min-h-full max-w-[860px] items-center px-4 py-8" onClick={(e) => e.stopPropagation()}>
+        <div className="panel bracket relative w-full rounded-xl p-6 md:p-9">
+          <button onClick={onClose} className="absolute right-4 top-4 grid h-8 w-8 place-items-center rounded-full border border-white/15 text-white/70 transition hover:bg-white/10 hover:text-white">✕</button>
+          <div className="digits flex items-center gap-2 text-[9px] tracking-[0.4em] text-cyan-300/70">
+            <span className="h-px w-8 bg-cyan-300/50" /> SHIP'S MANUAL · THE AURORA MANIFEST
+          </div>
+          <h2 className="mt-2 text-[30px] font-extrabold leading-tight tracking-tight text-white">About Master of the Sea</h2>
+          <p className="mt-3 max-w-[640px] text-[13.5px] leading-relaxed text-slate-300/90">
+            A failing shipping line. A sealed container nobody will explain. A voice on channel sixteen that knows your every move. Take the conn of the{' '}
+            <span className="text-cyan-100">Aurora Trader</span> — and decide what kind of captain you are.
+          </p>
+
+          <div className="mt-6 grid gap-5 md:grid-cols-2">
+            <div>
+              <div className="label mb-2">The crew</div>
+              <div className="space-y-2">
+                {['okafor', 'brandt', 'voss', 'reyes', 'kestrel'].map((s) => (
+                  <div key={s} className="flex items-center gap-3 rounded-lg border border-white/8 bg-white/3 p-2">
+                    <Portrait speaker={s} size={42} />
+                    <div className="min-w-0">
+                      <div className="text-[12.5px] font-bold text-white">{CHARACTERS[s].name}</div>
+                      <div className="text-[10px] text-slate-400">{CHARACTERS[s].role}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <div className="label mb-2">How it plays</div>
+                <ul className="space-y-1.5 text-[12px] leading-relaxed text-slate-300/85">
+                  <li><span className="text-cyan-200">⚓ A deadline sim.</span> Conn a 160-metre boxship port to port — she answers slow, turns wide and doesn't stop for anyone. Beat the clock, keep the cargo.</li>
+                  <li><span className="text-red-200">💥 A gunboat when fired upon.</span> Pirates board, shore batteries shell your lanes. Hold the reticle on a contact and fire — deck gun, CIWS, and Sea Lance missiles that lock on.</li>
+                  <li><span className="text-emerald-200">📜 Nine chapters.</span> A scripted campaign from a clean Dover crossing to storming Kestrel's island fortress — then endless contracts, a daily seed, and replays for stars.</li>
+                  <li><span className="text-amber-200">🛠 Progression.</span> Wages fit the ship out in the Shipyard: engine, hull, radar, LRAD — and a bigger missile magazine.</li>
+                </ul>
+              </div>
+              <div>
+                <div className="label mb-2">Bridge controls</div>
+                <Controls touch={touch} />
+              </div>
+            </div>
+          </div>
+          <div className="digits mt-6 text-center text-[10px] tracking-[0.3em] text-slate-500">MASTER OF THE SEA · A SINGLE-FILE SEA STORY · SAVES ON THIS DEVICE</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ------------------------------------------------------------ main menu */
+/** Game shell over the live sea: logo + captain rail + action panel. */
 export function MainMenu({
   save,
   touch,
@@ -168,6 +232,7 @@ export function MainMenu({
   const [sel, setSel] = useState(Math.min(save.unlocked, MISSIONS.length - 1));
   const [csel, setCsel] = useState(0);
   const [tab, setTab] = useState<Tab>('story');
+  const [about, setAbout] = useState(false);
   const m = MISSIONS[sel];
   const rank = rankFor(save.earnings);
   const totalStars = Object.values(save.stars).reduce((a, b) => a + b, 0);
@@ -186,58 +251,65 @@ export function MainMenu({
 
   return (
     <div className="absolute inset-0 overflow-y-auto bg-gradient-to-b from-[#02090f]/85 via-[#031019]/45 to-[#02090f]/92">
-      <div className="mx-auto flex min-h-full w-full max-w-[1200px] flex-col gap-6 px-5 py-6 md:flex-row md:items-center md:gap-10 md:px-10">
-        <div className="fade-up md:w-[44%]">
-          <div className="digits mb-2 flex items-center gap-2 text-[9px] tracking-[0.4em] text-cyan-300/70">
-            <span className="h-px w-8 bg-cyan-300/50" /> THE AURORA MANIFEST
+      <div className="mx-auto flex min-h-full w-full max-w-[1200px] flex-col px-5 py-5 md:px-10">
+        <header className="flex flex-wrap items-end justify-between gap-4 border-b border-white/8 pb-4">
+          <div>
+            <div className="digits mb-1 flex items-center gap-2 text-[9px] tracking-[0.4em] text-cyan-300/70">
+              <span className="h-px w-8 bg-cyan-300/50" /> THE AURORA MANIFEST
+            </div>
+            <h1 className="text-[34px] font-extrabold leading-[0.95] tracking-tight text-white drop-shadow-[0_6px_40px_rgba(0,0,0,0.8)] md:text-[46px]">
+              MASTER <span className="bg-gradient-to-r from-cyan-200 via-sky-300 to-emerald-200 bg-clip-text text-transparent">OF THE SEA</span>
+            </h1>
           </div>
-          <h1 className="text-[44px] font-extrabold leading-[0.92] tracking-tight text-white drop-shadow-[0_6px_40px_rgba(0,0,0,0.8)] md:text-[64px]">
-            MASTER
-            <br />
-            <span className="bg-gradient-to-r from-cyan-200 via-sky-300 to-emerald-200 bg-clip-text text-transparent">OF THE SEA</span>
-          </h1>
-          <p className="mt-3 max-w-[440px] text-[13px] leading-relaxed text-slate-300/90">
-            A failing shipping line. A sealed container nobody will explain. A voice on channel sixteen that knows your every move. Take the conn of the Aurora
-            Trader — and decide what kind of captain you are.
-          </p>
+          <button onClick={() => setAbout(true)} className={`${GHOST} px-4 py-2.5 text-[10px]`}>
+            ⚓ ABOUT · MANUAL
+          </button>
+        </header>
 
-          <div className="mt-4 flex -space-x-2">
-            {['okafor', 'brandt', 'voss', 'reyes', 'kestrel'].map((s) => (
-              <div key={s} title={CHARACTERS[s].name} className="rounded-lg ring-2 ring-[#04101a]">
-                <Portrait speaker={s} size={44} />
+        <div className="flex flex-1 flex-col gap-5 pt-5 md:flex-row md:items-start md:gap-8">
+          {/* captain rail */}
+          <div className="fade-up space-y-4 md:w-[320px] md:shrink-0">
+            <div className="panel rounded-xl p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="label">Master's rank</div>
+                  <div className="text-[18px] font-bold text-white">{rank.title}</div>
+                </div>
+                <div className="text-right">
+                  <div className="label">Bank</div>
+                  <div className="digits text-[18px] font-bold text-emerald-300">${save.bank.toLocaleString()}</div>
+                </div>
               </div>
-            ))}
-          </div>
-
-          <div className="panel mt-5 max-w-[440px] rounded-lg p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="label">Master's rank</div>
-                <div className="text-[18px] font-bold text-white">{rank.title}</div>
+              <div className="mt-3 h-[5px] overflow-hidden rounded-full bg-white/10">
+                <div className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-emerald-300" style={{ width: `${Math.min(100, rank.progress * 100)}%` }} />
               </div>
-              <div className="text-right">
-                <div className="label">Bank</div>
-                <div className="digits text-[18px] font-bold text-emerald-300">${save.bank.toLocaleString()}</div>
+              <div className="mt-1.5 flex justify-between text-[9px] text-slate-400">
+                <span>{rank.next ? `Next: ${rank.next}` : 'Highest rank achieved'}</span>
+                <span className="digits">
+                  {totalStars}/{MISSIONS.length * 3} ★ · {save.achievements.length}/{ACHIEVEMENTS.length} 🏆
+                </span>
+              </div>
+              <div className="digits mt-3 flex justify-between border-t border-white/8 pt-2.5 text-[10px] text-slate-400">
+                <span>{save.voyages} voyages</span>
+                <span>{save.totals.skiffsSunk + save.totals.motherships} sunk · {save.totals.forts} batteries</span>
               </div>
             </div>
-            <div className="mt-3 h-[5px] overflow-hidden rounded-full bg-white/10">
-              <div className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-emerald-300" style={{ width: `${Math.min(100, rank.progress * 100)}%` }} />
-            </div>
-            <div className="mt-1.5 flex justify-between text-[9px] text-slate-400">
-              <span>{rank.next ? `Next: ${rank.next}` : 'Highest rank achieved'}</span>
-              <span className="digits">
-                {totalStars}/{MISSIONS.length * 3} ★ · {save.achievements.length}/{ACHIEVEMENTS.length} 🏆 · {save.voyages} voyages
+
+            <button onClick={() => onStart(save.storyDone ? m : MISSIONS[Math.min(save.unlocked, MISSIONS.length - 1)])} className={`${PRIMARY} cta-pulse w-full px-6 py-5 text-[15px]`}>
+              <span className="relative z-10">
+                {save.storyDone
+                  ? `▶ SET SAIL — ${chapterFor(m.id) ? `CHAPTER ${ch?.numeral}` : m.title.toUpperCase()}`
+                  : `▶ PLAY NOW — ${(() => {
+                      const qch = chapterFor(MISSIONS[Math.min(save.unlocked, MISSIONS.length - 1)].id);
+                      return qch ? `CHAPTER ${qch.numeral}` : 'NEXT VOYAGE';
+                    })()}`}
               </span>
-            </div>
+            </button>
+            <div className="digits text-center text-[9px] tracking-[0.25em] text-slate-500">GUNS: CLICK / SPACE · LAUNCHERS: 1 · 2 · 3 · Q</div>
           </div>
 
-          <div className="mt-5 hidden md:block">
-            <div className="label mb-2">Bridge controls</div>
-            <Controls touch={touch} />
-          </div>
-        </div>
-
-        <div className="fade-up panel rounded-xl p-4 md:w-[56%] md:p-5">
+          {/* operations panel */}
+          <div className="fade-up panel min-w-0 flex-1 rounded-xl p-4 md:p-5">
           <div className="mb-3 flex flex-wrap items-center gap-1.5">
             {tabs.map(([k, label]) => (
               <button
@@ -355,49 +427,41 @@ export function MainMenu({
               })}
             </div>
           )}
+          </div>
         </div>
       </div>
+      {about && <AboutModal touch={touch} onClose={() => setAbout(false)} />}
     </div>
   );
 }
 
 /* ------------------------------------------------------------- briefing */
-export function Briefing({ m, touch, onGo, onBack }: { m: MissionDef; touch: boolean; onGo: () => void; onBack: () => void }) {
+export function Briefing({ m, onGo, onBack }: { m: MissionDef; touch: boolean; onGo: () => void; onBack: () => void }) {
   const par = `${Math.floor(m.parTime / 60)}:${(m.parTime % 60).toString().padStart(2, '0')}`;
   return (
     <div className="absolute inset-0 overflow-y-auto bg-black/60 backdrop-blur-[3px]">
-      <div className="mx-auto flex min-h-full max-w-[700px] items-center px-4 py-6">
-        <div className="fade-up panel bracket relative w-full rounded-xl p-5 md:p-7">
+      <div className="mx-auto flex min-h-full max-w-[560px] items-center px-4 py-5">
+        <div className="fade-up panel bracket relative w-full rounded-xl p-5 md:p-6">
           <div className="flex items-start justify-between gap-3">
             <div>
               <div className="digits text-[9px] tracking-[0.3em] text-cyan-300/70">{m.chapter ? m.chapter.toUpperCase() : `VOYAGE ORDERS · ${m.code}`}</div>
-              <h2 className="mt-1 text-[28px] font-bold leading-tight text-white md:text-[34px]">{m.title}</h2>
+              <h2 className="mt-1 text-[26px] font-bold leading-tight text-white md:text-[32px]">{m.title}</h2>
               <div className="digits mt-1 text-[12px] text-slate-300">
-                {m.from} <span className="text-cyan-300">──▶</span> {m.to} · {m.distanceKm} km · {m.region}
+                {m.from} <span className="text-cyan-300">──▶</span> {m.to} · {m.distanceKm} km
               </div>
             </div>
             <div className={`digits shrink-0 rounded border px-2 py-1 text-[10px] ${DIFF_COLOR[m.difficulty]}`}>{m.difficulty}</div>
           </div>
 
-          <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-4">
-            {[
-              ['Cargo', m.cargoDesc],
-              ['Charter value', `$${m.reward.toLocaleString()}`],
-              ['Weather', m.weather.toUpperCase()],
-              ['3★ time', `under ${par}`],
-            ].map(([k, v]) => (
-              <div key={k} className="panel-slim rounded p-2.5">
-                <div className="label">{k}</div>
-                <div className="digits mt-0.5 text-[11.5px] text-cyan-100">{v}</div>
-              </div>
-            ))}
+          <div className="digits mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[10.5px] text-slate-300">
+            <span>${m.reward.toLocaleString()}</span>
+            <span>{m.weather.toUpperCase()}</span>
+            <span>3★ under {par}</span>
+            <span className="text-slate-500">{m.cargoDesc}</span>
           </div>
 
-          <div className="mt-5">
-            <div className="label mb-3">Intelligence along the track</div>
+          <div className="mt-4">
             <div className="relative mx-2 h-[2px] rounded bg-gradient-to-r from-cyan-400/60 via-white/30 to-amber-300/70">
-              <div className="absolute -left-2 -top-[7px] text-[12px]">🏠</div>
-              <div className="absolute -right-2 -top-[7px] text-[12px]">⚓</div>
               {m.events.map((e, i) => (
                 <div key={i} className="absolute -top-[9px] -translate-x-1/2" style={{ left: `${e.at * 100}%` }}>
                   <div className="grid h-5 w-5 place-items-center rounded-full border border-white/25 bg-[#07202f] text-[10px]">{EVENT_META[e.kind].icon}</div>
@@ -405,53 +469,35 @@ export function Briefing({ m, touch, onGo, onBack }: { m: MissionDef; touch: boo
               ))}
               {(m.choices ?? []).map((c) => (
                 <div key={c.id} className="absolute -top-[9px] -translate-x-1/2" style={{ left: `${c.at * 100}%` }}>
-                  <div className="grid h-5 w-5 place-items-center rounded-full border border-amber-300/50 bg-[#2a1d07] text-[10px]">❓</div>
+                  <div className="grid h-5 w-5 place-items-center rounded-full border border-amber-300/50 bg-[#2a1d07] text-[10px]">?</div>
                 </div>
               ))}
             </div>
-            <div className="mt-5 space-y-1.5">
+            <div className="mt-3 flex flex-wrap gap-x-3 gap-y-0.5 text-[10.5px] text-slate-300">
               {m.events.map((e, i) => (
-                <div key={i} className="flex items-center gap-2 text-[11.5px] text-slate-300">
-                  <span className="digits w-9 text-[9px] text-slate-500">{Math.round(e.at * 100)}%</span>
-                  <span>{EVENT_META[e.kind].icon}</span>
-                  <span>{EVENT_META[e.kind].task(e)}</span>
-                  {e.kind === 'distress' && <span className="text-[9px] text-slate-500">optional · bonus</span>}
-                </div>
+                <span key={i} className="flex items-center gap-1">
+                  {EVENT_META[e.kind].icon} {EVENT_META[e.kind].label}
+                </span>
               ))}
-              {(m.choices ?? []).map((c) => (
-                <div key={c.id} className="flex items-center gap-2 text-[11.5px] text-amber-200/80">
-                  <span className="digits w-9 text-[9px] text-slate-500">{Math.round(c.at * 100)}%</span>
-                  <span>❓</span>
-                  <span>Someone will make you an offer over the radio</span>
-                </div>
-              ))}
-              <div className="flex items-center gap-2 text-[11.5px] text-slate-300">
-                <span className="digits w-9 text-[9px] text-slate-500">100%</span>
-                <span>⚓</span>
-                <span>Berth at {m.to} under 8 knots</span>
-              </div>
+              <span className="flex items-center gap-1">⚓ Berth &lt;8 kn</span>
             </div>
           </div>
 
-          <div className="mt-5 space-y-1.5">
+          <div className="mt-4 space-y-1">
             <div className="label">Master's briefing</div>
-            {m.brief.map((b) => (
-              <div key={b} className="flex gap-2 text-[12px] leading-relaxed text-slate-300">
-                <span className="mt-[7px] h-1 w-1 shrink-0 rounded-full bg-cyan-300" />
+            {m.brief.slice(0, 2).map((b) => (
+              <div key={b} className="line-clamp-2 text-[11.5px] leading-snug text-slate-400">
                 {b}
               </div>
             ))}
-          </div>
-
-          <div className="mt-5 border-t border-white/10 pt-4">
-            <Controls touch={touch} />
           </div>
 
           <div className="mt-5 flex items-center justify-between gap-3">
             <button onClick={onBack} className="digits text-[11px] tracking-widest text-slate-400 hover:text-slate-200">
               ← BACK
             </button>
-            <button onClick={onGo} className={`${PRIMARY} px-6 py-3 text-[12px]`}>
+            <span className="digits hidden text-[9px] tracking-[0.2em] text-slate-500 md:inline">CLICK / SPACE — GUNS</span>
+            <button onClick={onGo} className={`${PRIMARY} px-8 py-3.5 text-[13px]`}>
               <span className="relative z-10">SET SAIL</span>
               <span className="sheen absolute inset-0" />
             </button>
@@ -556,9 +602,14 @@ export function Results({
     ['Passage time', `${Math.floor(stats.timeTaken / 60)}m ${Math.floor(stats.timeTaken % 60)}s · par ${Math.floor(stats.mission.parTime / 60)}m ${stats.mission.parTime % 60}s`],
     ['Close calls · best chain', `${stats.closeCalls} · ×${(1 + (stats.maxChain - 1) * 0.25).toFixed(2)}`],
   ];
+  const acc = stats.combat.shellsFired > 0 ? Math.round((stats.combat.shellsHit / stats.combat.shellsFired) * 100) : 0;
   const feats: [string, number | string][] = [
+    ['☠ Skiffs sunk', stats.combat.skiffsSunk],
+    ['🏴‍☠️ Motherships', stats.combat.mothershipsSunk],
+    ['🏝 Batteries', stats.combat.shoreSitesDestroyed],
+    ['🚀 Missiles', stats.combat.missilesFired],
+    ['🎯 Accuracy', `${acc}%`],
     ['🛟 Rescued', stats.rescued],
-    ['☠ Attacks repelled', stats.attacksRepelled],
     ['💦 Hosed off', stats.hoseRepels],
     ['💨 Outran', stats.outran],
     ['🏴 Boarded', stats.boarded],
@@ -590,11 +641,11 @@ export function Results({
           )}
           {isDaily && stats.success && <div className="mt-4 rounded-lg border border-cyan-300/30 bg-cyan-400/10 px-4 py-2 text-[12px] text-cyan-100">Daily charter score recorded: ${stats.total.toLocaleString()}</div>}
 
-          <div className="mt-4 grid grid-cols-3 gap-1.5 sm:grid-cols-6">
+          <div className="mt-4 grid grid-cols-5 gap-1.5">
             {feats.map(([k, v]) => (
-              <div key={k} className="panel-slim rounded p-2 text-center">
-                <div className="digits text-[15px] font-bold text-white">{v}</div>
-                <div className="text-[8.5px] text-slate-400">{k}</div>
+              <div key={k} className="panel-slim rounded p-1.5 text-center">
+                <div className="digits text-[13.5px] font-bold text-white">{v}</div>
+                <div className="text-[7.5px] uppercase tracking-wide text-slate-400">{k}</div>
               </div>
             ))}
           </div>

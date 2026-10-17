@@ -663,6 +663,15 @@ export function buildShip(opts: ShipOptions): ShipModel {
   group.add(ciwsBase);
   ciws = ciwsBase;
 
+  /* VLS missile cells forward — Sea Lance anti-ship missiles */
+  {
+    const vlsY = deckY(sAt(44)) + 0.4;
+    box(7.5, 1.5, 4.8, M.darkMetal, 44, vlsY, 0);
+    for (let i = 0; i < 8; i++) {
+      box(1.4, 1.8, 0.9, i % 2 ? M.lightGrey : M.deck, 41.3 + (i % 4) * 1.8, vlsY + 0.35, i < 4 ? -1.25 : 1.25);
+    }
+  }
+
   /* shadows */
   group.traverse((obj) => {
     const m = obj as THREE.Mesh;

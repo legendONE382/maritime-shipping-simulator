@@ -226,6 +226,31 @@ export class GameAudio {
     this.blip(180, 0.08, 'square', 0.06 * vol, 70);
   }
 
+  /** VLS cold-launch whoosh + booster ignition. */
+  missile() {
+    this.burst(0.65, 950, 'bandpass', 0.17);
+    this.blip(300, 0.55, 'sawtooth', 0.07, 1350);
+    this.burst(1.1, 340, 'lowpass', 0.12, 0.3);
+  }
+
+  /** Deep secondary explosion — forts and final kills. */
+  explosion(vol = 1) {
+    this.burst(0.55, 520, 'lowpass', 0.32 * vol);
+    this.blip(64, 0.6, 'sine', 0.24 * vol, 34);
+    this.burst(0.9, 180, 'lowpass', 0.2 * vol, 0.08);
+  }
+
+  /** Seeker tone: lock acquired (double chirp) / lock lost (low bonk). */
+  lock(ok: boolean) {
+    if (ok) {
+      this.blip(1180, 0.09, 'square', 0.11);
+      this.blip(1180, 0.09, 'square', 0.11, undefined, 0.14);
+      this.blip(1560, 0.16, 'square', 0.1, undefined, 0.28);
+    } else {
+      this.blip(560, 0.16, 'square', 0.07);
+    }
+  }
+
   alarm() {
     this.blip(880, 0.16, 'square', 0.1);
     this.blip(660, 0.18, 'square', 0.1, undefined, 0.17);

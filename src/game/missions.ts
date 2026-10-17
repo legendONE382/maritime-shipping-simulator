@@ -1,6 +1,10 @@
+import type { CombatStats } from './combat';
+
 export type WeatherKind = 'clear' | 'overcast' | 'rough' | 'storm';
 export type EventKind =
   | 'pirates'
+  | 'hunt'
+  | 'shorestrike'
   | 'storm'
   | 'distress'
   | 'minefield'
@@ -64,6 +68,8 @@ export interface MissionDef {
 
 export const EVENT_META: Record<EventKind, { icon: string; label: string; task: (e: MissionEvent) => string }> = {
   pirates: { icon: '☠', label: 'Pirate attack', task: (e) => `Repel the pirate attack (${e.count ?? 2} skiffs)` },
+  hunt: { icon: '🏴‍☠️', label: 'Mothership hunt', task: () => 'Hunt down the mothership — guns free' },
+  shorestrike: { icon: '💥', label: 'Shore batteries', task: (e) => `Destroy ${e.count ?? 3} coastal gun batteries` },
   storm: { icon: '⚡', label: 'Storm cell', task: () => 'Weather the storm cell' },
   distress: { icon: '🆘', label: 'Distress call', task: () => 'Recover survivors from the life raft' },
   minefield: { icon: '✸', label: 'Minefield', task: () => 'Pick a way through the minefield' },
@@ -279,6 +285,103 @@ export const MISSIONS: MissionDef[] = [
       { at: 0.84, kind: 'pirates', count: 4 },
     ],
   },
+  {
+    id: 6,
+    code: 'OP-CS-07',
+    title: 'Operation Clean Sweep',
+    kind: 'story',
+    chapter: 'Chapter VII — Guns for Hire',
+    from: 'Port Klang',
+    to: 'Colombo',
+    region: 'Malacca Strait · Andaman Sea',
+    cargoDesc: 'Naval stores · 2,100 TEU',
+    cargoTons: 31000,
+    reward: 1500000,
+    distanceKm: 8.8,
+    weather: 'overcast',
+    sunElevation: 16,
+    obstacleDensity: 0.58,
+    traffic: 3,
+    parTime: 510,
+    difficulty: 'Severe',
+    brief: [
+      'The Coalition has flagged Bluewater as an armed auxiliary. You sail this one under Navy tasking — guns free.',
+      'Two motherships are running skiff packs through the strait. There is a bounty on every one you put down.',
+      'Deck gun manned, CIWS live, VLS armed. Kestrel\'s people will know you are coming.',
+    ],
+    events: [
+      { at: 0.14, kind: 'traffic' },
+      { at: 0.28, kind: 'hunt', count: 3 },
+      { at: 0.46, kind: 'fog' },
+      { at: 0.6, kind: 'hunt', count: 3 },
+      { at: 0.82, kind: 'pirates', count: 3 },
+    ],
+  },
+  {
+    id: 7,
+    code: 'OP-IT-12',
+    title: 'Operation Iron Tide',
+    kind: 'story',
+    chapter: 'Chapter VIII — The Island',
+    from: 'Salalah',
+    to: 'Djibouti',
+    region: 'Arabian Sea · Socotra approaches',
+    cargoDesc: 'Precision munitions · 1,700 TEU',
+    cargoTons: 26800,
+    reward: 1800000,
+    distanceKm: 9.2,
+    weather: 'rough',
+    sunElevation: 11,
+    obstacleDensity: 0.62,
+    traffic: 2,
+    parTime: 530,
+    difficulty: 'Extreme',
+    brief: [
+      'Satellite overflight found the source: a fortified islet running the skiff packs — Kestrel\'s forward anchorage.',
+      'Coastal batteries will engage you inside 1.2 km. Keep her moving: a predictable track gets hit.',
+      'The Sea Lance is loaded for fort work. Hold the reticle on a battery to lock, then launch.',
+    ],
+    events: [
+      { at: 0.14, kind: 'minefield', count: 10 },
+      { at: 0.34, kind: 'shorestrike', count: 3 },
+      { at: 0.52, kind: 'pirates', count: 3 },
+      { at: 0.68, kind: 'hunt', count: 2 },
+      { at: 0.86, kind: 'reef' },
+    ],
+  },
+  {
+    id: 8,
+    code: 'OP-JD-00',
+    title: 'Operation Judgement',
+    kind: 'story',
+    chapter: 'Chapter IX — Judgement',
+    from: 'Mombasa',
+    to: 'Victoria',
+    region: 'Seychelles Basin · Kestrel Shoal',
+    cargoDesc: 'Coalition relief · 2,600 TEU',
+    cargoTons: 42000,
+    reward: 2500000,
+    distanceKm: 9.8,
+    weather: 'storm',
+    sunElevation: 6,
+    obstacleDensity: 0.88,
+    traffic: 2,
+    parTime: 575,
+    difficulty: 'Extreme',
+    brief: [
+      'Kestrel is done hiding: a fortress island under storm cover and every skiff left in the basin.',
+      'Four batteries guard the anchorage. Sea Lance ammunition is limited — make every lock count.',
+      'End this, berth at Victoria, and the sea goes back to being just the sea.',
+    ],
+    events: [
+      { at: 0.1, kind: 'minefield', count: 12 },
+      { at: 0.24, kind: 'storm', radius: 700 },
+      { at: 0.4, kind: 'shorestrike', count: 4 },
+      { at: 0.56, kind: 'hunt', count: 4 },
+      { at: 0.7, kind: 'storm', radius: 560 },
+      { at: 0.85, kind: 'distress' },
+    ],
+  },
 ];
 
 /* ------------------------------------------------------------ contracts */
@@ -409,6 +512,7 @@ export interface Upgrades {
   lrad: number;
   radar: number;
   stab: number;
+  vls: number;
 }
 export type UpgradeId = keyof Upgrades;
 
@@ -423,12 +527,13 @@ export interface UpgradeDef {
 export const UPGRADES: UpgradeDef[] = [
   { id: 'hull', name: 'Reinforced Hull', icon: '🛡️', desc: '−14% impact damage per level', cost: [160000, 300000, 520000] },
   { id: 'engine', name: 'Engine Overhaul', icon: '⚙️', desc: '+6% top speed, quicker response per level', cost: [200000, 360000, 600000] },
+  { id: 'vls', name: 'VLS Magazine', icon: '🚀', desc: '+4 Sea Lance missiles per voyage per level', cost: [220000, 480000] },
   { id: 'lrad', name: 'LRAD Mk II', icon: '📡', desc: '−3 s recharge, +90 m range per level', cost: [140000, 260000, 420000] },
   { id: 'radar', name: 'Long-range Radar', icon: '🛰️', desc: '+700 m detection range per level', cost: [120000, 260000] },
   { id: 'stab', name: 'Fin Stabilisers', icon: '🌊', desc: '−22% storm damage, steadier deck per level', cost: [180000, 340000] },
 ];
 
-export const DEFAULT_UPGRADES: Upgrades = { hull: 0, engine: 0, lrad: 0, radar: 0, stab: 0 };
+export const DEFAULT_UPGRADES: Upgrades = { hull: 0, engine: 0, lrad: 0, radar: 0, stab: 0, vls: 0 };
 
 export interface Totals {
   rescues: number;
@@ -437,6 +542,10 @@ export interface Totals {
   hoseRepels: number;
   whalesSafe: number;
   outran: number;
+  skiffsSunk: number;
+  motherships: number;
+  forts: number;
+  missiles: number;
 }
 
 export interface SaveData {
@@ -463,7 +572,7 @@ export const DEFAULT_SAVE: SaveData = {
   voyages: 0,
   flags: {},
   achievements: [],
-  totals: { rescues: 0, closeCalls: 0, contracts: 0, hoseRepels: 0, whalesSafe: 0, outran: 0 },
+  totals: { rescues: 0, closeCalls: 0, contracts: 0, hoseRepels: 0, whalesSafe: 0, outran: 0, skiffsSunk: 0, motherships: 0, forts: 0, missiles: 0 },
   dailyBest: null,
   contractSeed: 1,
   storyDone: false,
@@ -518,6 +627,12 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'navy', icon: '🚁', name: 'Friends in High Places', desc: 'Call in the navy helicopter' },
   { id: 'chain', icon: '⛓', name: 'Unbroken Chain', desc: 'Reach a ×5 seamanship chain' },
   { id: 'story', icon: '📜', name: 'The Aurora Manifest', desc: 'Finish the story' },
+  { id: 'sunk1', icon: '💥', name: 'First Blood', desc: 'Sink a pirate skiff with the deck guns' },
+  { id: 'hunter', icon: '🏴‍☠️', name: 'Mothership Hunter', desc: 'Sink three pirate motherships' },
+  { id: 'marksman', icon: '🎯', name: 'Marksman', desc: 'Finish a voyage with 70%+ gunnery accuracy (20+ shells)' },
+  { id: 'islandbreaker', icon: '🏝️', name: 'Island Breaker', desc: 'Destroy a coastal gun battery' },
+  { id: 'warlord', icon: '⚔️', name: 'Gunboat Diplomacy', desc: 'Destroy four shore batteries in total' },
+  { id: 'rocketman', icon: '🚀', name: 'Tube Veteran', desc: 'Fire ten Sea Lance missiles' },
   { id: 'tramp', icon: '🧭', name: 'Tramp Steamer', desc: 'Complete five contracts' },
   { id: 'million', icon: '💰', name: 'Millionaire', desc: 'Hold $1,000,000 in the bank' },
 ];
@@ -542,6 +657,12 @@ export function checkAchievements(save: SaveData, s?: EndStats): string[] {
   add('navy', !!s && s.navyCalled);
   add('chain', !!s && s.maxChain >= 5);
   add('story', save.storyDone);
+  add('sunk1', t.skiffsSunk >= 1);
+  add('hunter', t.motherships >= 3);
+  add('marksman', !!s && s.combat.shellsFired >= 20 && s.combat.shellsHit / s.combat.shellsFired >= 0.7);
+  add('islandbreaker', t.forts >= 1);
+  add('warlord', t.forts >= 4);
+  add('rocketman', t.missiles >= 10);
   add('tramp', t.contracts >= 5);
   add('million', save.bank >= 1000000);
   return out;
@@ -551,6 +672,7 @@ export interface EndStats {
   success: boolean;
   mission: MissionDef;
   stars: number;
+  combat: CombatStats;
   cargoDelivered: number;
   hullLeft: number;
   fuelLeft: number;
