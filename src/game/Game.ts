@@ -5,12 +5,12 @@ import { SHIP_L, allWindowMaterials } from './ship';
 import { GameAudio } from './audio';
 import { ParticleField } from './particles';
 import { buildContainerShip, buildIceberg, buildLifeRaft, buildPort, buildRock } from './models';
-import { buildBuoy, buildDriftDebris, buildIceSkirt, buildMooredMine, buildReef, buildWaypointRing, type BuoyKind, type WaypointRing } from './craft';
+import { buildBuoy, buildDriftDebris, buildFort, buildIceSkirt, buildIsland, buildMooredMine, buildReef, buildWaypointRing, type BuoyKind, type WaypointRing } from './craft';
 import { PirateSystem, type NavyState, type WorldMarker } from './pirates';
 import { TrafficSystem } from './traffic';
 import { WildlifeSystem } from './wildlife';
 import { CombatSystem, WEAPONS, type CombatStats, type Target, type TargetKind } from './combat';
-import { EVENT_META, starsFor, type ChoiceOption, type EndStats, type MissionChoice, type MissionDef, type MissionEvent, type Upgrades } from './missions';
+import { DEFAULT_UPGRADES, EVENT_META, starsFor, type ChoiceOption, type EndStats, type MissionChoice, type MissionDef, type MissionEvent, type Upgrades } from './missions';
 import { GENERIC_RADIO, RADIO, type Flags, type RadioCue } from './story';
 import { makePuffTexture, makeRainTexture } from './textures';
 
@@ -23,6 +23,7 @@ export type ContactType =
   | 'pirate'
   | 'mothership'
   | 'navy'
+  | 'fort'
   | 'rock'
   | 'ice'
   | 'mine'
@@ -41,7 +42,7 @@ export interface Contact {
   type: ContactType;
 }
 
-export type MarkerType = 'wp' | 'port' | 'pirate' | 'mothership' | 'navy' | 'whale' | 'raft' | 'storm';
+export type MarkerType = 'wp' | 'port' | 'pirate' | 'mothership' | 'navy' | 'fort' | 'whale' | 'raft' | 'storm';
 export interface Marker {
   id: string;
   type: MarkerType;
@@ -125,6 +126,18 @@ export interface Telemetry {
   weaponHeat: number;
   weaponOverheated: boolean;
   weaponSlot: number;
+  /** per-slot reload state (0..1) for the weapon dock */
+  weaponCds: number[];
+  /** VLS missile status */
+  missiles: number;
+  maxMissiles: number;
+  /** seeker lock 0..1 (1 = locked) */
+  lock: number;
+  locked: boolean;
+  /** soft aim-assist: crosshair is over a valid target */
+  aimOnTarget: boolean;
+  aimKind: string | null;
+  aimDist: number;
   /** live shells — used by the HUD tracer gauge */
   shellsInFlight: number;
   /** combat tallies accumulated this voyage */
@@ -339,7 +352,7 @@ export class Game {
   private navyEta = 38;
 
   // upgrades
-  private up: Upgrades = { hull: 0, engine: 0, lrad: 0, radar: 0, stab: 0 };
+  private up: Upgrades = { ...DEFAULT_UPGRADES };
   private maxSpeed = BASE_MAX_SPEED;
   private dmgMul = 1;
   private stormMul = 1;
@@ -418,6 +431,16 @@ export class Game {
   private disposed = false;
   private idCounter = 1;
   private tmpV3 = new THREE.Vector3();
+
+  /* crosshair aim + click-to-fire (desktop). The reticle raycasts onto the sea plane. */
+  private aimNdc = new THREE.Vector2(0.14, -0.04);
+  private aimAge = 99;
+  private hasFinePointer = typeof window !== 'undefined' && window.matchMedia('(pointer: fine)').matches;
+  private raycaster = new THREE.Raycaster();
+  private mouseDownAt = 0;
+  private mouseDownX = 0;
+  private mouseDownY = 0;
+  private mouseDragged = false;
 
   constructor(container: HTMLElement, cbs: GameCallbacks) {
     this.container = container;
@@ -669,9 +692,11 @@ export class Game {
     this.env = this.weatherBase;
 
     this.clearWorld();
-    this.pirates.reset(mission.events.some((e) => e.kind === 'pirates'));
+    this.pirates.reset(mission.events.some((e) => e.kind === 'pirates' || e.kind === 'hunt'));
     this.combat.reset();
+    this.combat.setAmmo(6 + this.up.vls * 4);
     this.combatTargets.clear();
+    this.aimAge = 99;
     const R = rng(mission.id * 7919 + 17);
 
     // radio script and mid-voyage decisions
@@ -878,10 +903,10 @@ export class Game {
   }
 
   private addRock(x: number, z: number, s: number) {
-    this.newHazard(buildRock(s), x, z, 26 * s, 'rock');
+    this.newHazard(buildRock(s), x, z, 26 * s * 1.2, 'rock');
   }
   private addIce(x: number, z: number, s: number, skirt = true) {
-    this.newHazard(buildIceberg(s), x, z, 34 * s, 'ice');
+    this.newHazard(buildIceberg(s), x, z, 34 * s * 1.22, 'ice');
     if (skirt) this.world.add(buildIceSkirt(this.ocean, x, z, 34 * s * 1.5));
   }
   private addMine(x: number, z: number) {
@@ -936,10 +961,10 @@ export class Game {
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'Equal', 'Minus', 'KeyR'].includes(e.code)) e.preventDefault();
     if (e.repeat) return;
     this.setKey(e.code, true);
-    if (e.code === 'KeyF' || e.code === 'Space') this.triggerFlare();
+    if (e.code === 'KeyF') this.triggerFlare();
+    if (e.code === 'Space' || e.code === 'KeyX' || e.code === 'KeyG') this.fireWeapon(false);
     if (e.code === 'KeyC') this.cycleCamera();
     if (e.code === 'KeyQ') this.cycleWeapon();
-    if (e.code === 'KeyX' || e.code === 'KeyG') this.fireWeapon(false);
     if (e.code === 'KeyR') this.resetCamera();
     if (e.code === 'Equal' || e.code === 'NumpadAdd') this.zoomCamera(-50);
     if (e.code === 'Minus' || e.code === 'NumpadSubtract') this.zoomCamera(50);
@@ -948,12 +973,14 @@ export class Game {
     if (this.activeChoice && (e.code === 'Digit1' || e.code === 'Digit2')) {
       const opt = this.activeChoice.options[e.code === 'Digit1' ? 0 : 1];
       if (opt) this.choose(this.activeChoice.id, opt.id);
+    } else if (e.code === 'Digit1' || e.code === 'Digit2' || e.code === 'Digit3') {
+      this.selectWeapon(Number(e.code.slice(-1)) - 1);
     }
   };
 
   private handleKeyUp = (e: KeyboardEvent) => {
     this.setKey(e.code, false);
-    if (e.code === 'KeyX' || e.code === 'KeyG') this.combat.setHeld(false);
+    if (e.code === 'Space' || e.code === 'KeyX' || e.code === 'KeyG') this.combat.setHeld(false);
     if (e.code === 'ShiftLeft' && this.combat.weapon.kind !== 'ciws') this.combat.setHeld(false);
   };
 
@@ -969,12 +996,28 @@ export class Game {
       this.camLastX = e.clientX;
       this.camLastY = e.clientY;
       this.camTouchCount = 1;
+      /* click-to-fire bookkeeping: a press only becomes camera-drag past a few px */
+      this.mouseDownAt = performance.now();
+      this.mouseDownX = e.clientX;
+      this.mouseDownY = e.clientY;
+      this.mouseDragged = false;
       (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
       e.preventDefault();
     }
   };
+
+  /** Keep the crosshair NDC up to date (fine pointers track even without buttons). */
+  private trackAim(e: PointerEvent) {
+    const r = this.container.getBoundingClientRect();
+    if (r.width < 2) return;
+    this.aimNdc.set(((e.clientX - r.left) / r.width) * 2 - 1, -(((e.clientY - r.top) / r.height) * 2 - 1));
+    this.aimAge = 0;
+  }
+
   private handlePointerMove = (e: PointerEvent) => {
+    this.trackAim(e);
     if (!this.camDragging || this.paused) return;
+    if (!this.mouseDragged && Math.hypot(e.clientX - this.mouseDownX, e.clientY - this.mouseDownY) > 7) this.mouseDragged = true;
     const dx = e.clientX - this.camLastX;
     const dy = e.clientY - this.camLastY;
     this.camLastX = e.clientX;
@@ -994,6 +1037,11 @@ export class Game {
   };
   private handlePointerUp = (e: PointerEvent) => {
     this.camDragging = false;
+    this.combat.setHeld(false);
+    /* a clean short click (not a camera drag) fires the active weapon */
+    if (e.button === 0 && !this.mouseDragged && !this.paused && e.pointerType === 'mouse' && performance.now() - this.mouseDownAt < 450) {
+      this.fireWeapon(false);
+    }
     try {
       (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
     } catch {}
@@ -1181,15 +1229,30 @@ export class Game {
     if (held) return;
     const fx = Math.cos(this.heading);
     const fy = Math.sin(this.heading);
-    const side = Math.floor(performance.now() / 90) % 2 === 0 ? 1 : -1;
-    const mx = this.pos.x + fx * 52;
-    const mz = this.pos.y + fy * 52 + side * 12;
-    const launched = this.combat.fire(mx, 20, mz, this.heading, this.pos.x + fx * 420, this.pos.y + fy * 420);
+    const w = this.combat.weapon;
+    /* muzzle per mount: deck gun on the bow wings, CIWS atop the bridge, VLS just aft of it */
+    let mx: number;
+    let my = 20;
+    let mz: number;
+    if (w.kind === 'ciws') {
+      mx = this.pos.x - fx * 30;
+      mz = this.pos.y - fy * 30;
+      my = 30;
+    } else if (w.kind === 'missile') {
+      mx = this.pos.x + fx * 40;
+      mz = this.pos.y + fy * 40;
+      my = 12;
+    } else {
+      const side = Math.floor(performance.now() / 90) % 2 === 0 ? 1 : -1;
+      mx = this.pos.x + fx * 58 - fy * side * 11.5;
+      mz = this.pos.y + fy * 58 + fx * side * 11.5;
+    }
+    const launched = this.combat.fire(mx, my, mz, this.heading);
     if (launched === 0 && this.combat.overheated) this.toast('Barrel overheated — she is cooling.', 'warn');
     else if (launched > 0) {
       this.muzzleTimer = 0.08;
       this.audio.init();
-      this.say('firing');
+      if (w.kind !== 'missile') this.say('firing');
     }
   }
 
@@ -1474,7 +1537,9 @@ export class Game {
     this.traffic.update(dt, hull, bow, stern);
     this.wildlife.update(dt, hull);
     this.syncCombatTargets();
+    this.updateAim(rawDt);
     this.combat.update(dt);
+    this.updateSiteVisuals(dt);
     this.animateWeaponMounts(dt);
 
     this.updateRaft(dt);
@@ -1512,6 +1577,10 @@ export class Game {
     const right = this.keys['KeyD'] || this.keys['ArrowRight'];
     this.boosting = !!(this.keys['ShiftLeft'] || this.keys['ShiftRight']) && this.fuel > 0 && this.fouledT <= 0;
     this.pirates.hoseOn = !!this.keys['KeyE'];
+
+    /* held triggers: space/G/X keep the guns cycling; so does a long mouse press */
+    if (this.keys['Space'] || this.keys['KeyG'] || this.keys['KeyX']) this.combat.setHeld(true);
+    if (this.camDragging && !this.mouseDragged && this.camTouchCount === 1 && performance.now() - this.mouseDownAt > 340) this.combat.setHeld(true);
 
     if (up) this.throttleTarget = Math.min(1, this.throttleTarget + dt * 0.85);
     else if (down) this.throttleTarget = Math.max(-0.28, this.throttleTarget - dt * 0.95);
@@ -1742,6 +1811,31 @@ export class Game {
         case 'traffic':
           if (progress > e.at + 0.14) e.done = true;
           break;
+        case 'hunt':
+          if (!this.pirates.dhowAlive(e.id)) {
+            e.done = true;
+            this.attacksRepelled++;
+            this.addBonus(Math.round(m.reward * 0.07), 'MOTHERSHIP HUNTED DOWN');
+            this.banner('MOTHERSHIP SUNK', 'Bounty confirmed by the Coalition — clean kill', 'good');
+            this.audio.good();
+          } else if (progress > e.at + 0.45) {
+            e.failed = true;
+            this.toast('The mothership slipped away over the horizon — bounty lost.', 'warn');
+          }
+          break;
+        case 'shorestrike': {
+          if (this.combat.sitesAlive(e.id) === 0) {
+            e.done = true;
+            this.attacksRepelled++;
+            this.addBonus(Math.round(m.reward * 0.08), 'BATTERIES SILENCED');
+            this.banner('BATTERIES SILENCED', 'The island is dark — proceed to the berth', 'good');
+            this.audio.good();
+          } else if (progress > e.at + 0.44) {
+            e.failed = true;
+            this.toast('Shore batteries left active — tasking incomplete. The navy will have questions.', 'warn');
+          }
+          break;
+        }
       }
     }
   }
@@ -1836,7 +1930,52 @@ export class Game {
         this.say('reef');
         break;
       }
+      case 'hunt': {
+        const n = e.count ?? 3;
+        this.pirates.spawnHunt(e.id, n, side);
+        this.audio.alarm();
+        this.banner('MOTHERSHIP LOCATED', `${side > 0 ? 'Starboard' : 'Port'} bow — ${n} skiffs screening her. Guns free — sink her for the bounty`, 'danger');
+        this.say('hunt');
+        break;
+      }
+      case 'shorestrike':
+        this.spawnIslandStrike(e);
+        this.audio.alarm();
+        this.banner('SHORE BATTERIES LIVE', 'Shellfire inbound — keep way on her, reticle on the island, and return fire', 'danger');
+        this.say('shorestrike');
+        break;
     }
+  }
+
+  /** Fortified island on the beam with armed coastal batteries. */
+  private spawnIslandStrike(e: RuntimeEvent) {
+    const count = e.count ?? 3;
+    const c = this.routePoint(Math.min(0.96, e.at + 0.11));
+    const sideSign = Math.random() < 0.5 ? 1 : -1;
+    const R = 330 + Math.random() * 40;
+    const island = buildIsland(e.id.length * 17 + count, R);
+    const iz = c.y + sideSign * R * 1.12;
+    island.group.position.set(c.x, 0, iz);
+    /* face the fort rim toward the route */
+    island.group.rotation.y = sideSign > 0 ? Math.PI : 0;
+    this.world.add(island.group);
+    /* the landmass itself is a collision hazard */
+    this.newHazard(island.group, c.x, iz, R * 0.95, 'rock');
+    for (let i = 0; i < count; i++) {
+      const slot = island.slots[i % island.slots.length];
+      /* rotate the local slot into world space */
+      const rot = island.group.rotation.y;
+      const wx = c.x + Math.cos(rot) * slot.x - Math.sin(rot) * slot.z;
+      const wz = iz + Math.sin(rot) * slot.x + Math.cos(rot) * slot.z;
+      const fort = buildFort();
+      fort.group.position.set(wx, slot.y * 0.5, wz);
+      /* leave group yaw at identity: the combat system trains each turret (yaw only) itself */
+      this.world.add(fort.group);
+      const site = this.combat.registerShoreSite(e.id, wx, wz, 26, i < count); /* all armed */
+      site.obj = fort.group;
+    }
+    /* sortie a defensive patrol once the island is under attack */
+    if (count >= 3) this.pirates.spawnAttack(`${e.id}-guard`, 2, sideSign);
   }
 
   private spawnField(e: RuntimeEvent, kind: 'mine' | 'ice') {
@@ -2007,6 +2146,47 @@ export class Game {
   }
 
   /* ----------------------------------------------------- action combat */
+
+  /** Feed the crosshair into the combat system: mouse ray to the sea plane, or soft-lock on touch. */
+  private updateAim(rawDt: number) {
+    this.aimAge += rawDt;
+    const w = this.combat.weapon;
+    if (this.hasFinePointer && this.aimAge < 8) {
+      this.camera.updateMatrixWorld();
+      this.raycaster.setFromCamera(this.aimNdc, this.camera);
+      const ray = this.raycaster.ray;
+      if (ray.direction.y < -0.002) {
+        const t = -ray.origin.y / ray.direction.y;
+        if (t > 1 && t < 9000) {
+          this.combat.setAim(ray.origin.x + ray.direction.x * t, ray.origin.z + ray.direction.z * t);
+          return;
+        }
+      }
+    }
+    /* touch / stale mouse: soft-lock the closest hostile, a shore battery, else open water */
+    const t = this.combat.currentTarget();
+    if (t) this.combat.setAim(t.x, t.z);
+    else {
+      const s = this.combat.nearestShore(this.pos.x, this.pos.y, w.range);
+      if (s) this.combat.setAim(s.x, s.z);
+      else {
+        const fx = Math.cos(this.heading);
+        const fy = Math.sin(this.heading);
+        this.combat.setAim(this.pos.x + fx * 420, this.pos.y + fy * 420);
+      }
+    }
+  }
+
+  /** Dead batteries sag, tilt and burn — a cheap aftermath that reads at distance. */
+  private updateSiteVisuals(dt: number) {
+    for (const s of this.combat.shore) {
+      if (s.alive) continue;
+      s.obj.rotation.z += (0.13 - s.obj.rotation.z) * Math.min(1, dt);
+      s.obj.position.y += (-3.2 - s.obj.position.y) * Math.min(1, dt * 0.5);
+      if (Math.random() < dt * 4)
+        this.debris.spawn(s.x + (Math.random() - 0.5) * 14, 7 + Math.random() * 6, s.z + (Math.random() - 0.5) * 14, (Math.random() - 0.5) * 2, 5 + Math.random() * 4, (Math.random() - 0.5) * 2, 3, 6, 0.5);
+    }
+  }
 
   /** Mirror live pirate contacts into the combat target list each frame. */
   private syncCombatTargets() {
@@ -2197,6 +2377,7 @@ export class Game {
       success,
       mission: m,
       stars: starsFor(m, success, cargoRatio, this.elapsed, hullRatio),
+      combat: { ...this.combat.stats },
       cargoDelivered: cargoRatio,
       hullLeft: hullRatio,
       fuelLeft: this.fuel / 100,
@@ -2317,6 +2498,26 @@ export class Game {
       const ok = Math.abs(this.speed) < DOCK_SPEED;
       return { title: `BERTH AT ${m.to.toUpperCase()}`, detail: ok ? `${kn.toFixed(1)} kn — speed good, hold her steady` : `${kn.toFixed(1)} kn — slow below 8 kn to berth`, kind: 'dock', urgent: !ok };
     }
+    const strike = this.events.find((e) => e.kind === 'shorestrike' && e.fired && !e.done && !e.failed);
+    if (strike) {
+      const total = strike.count ?? 3;
+      const left = this.combat.sitesAlive(strike.id);
+      return {
+        title: left > 0 ? `DESTROY THE BATTERIES · ${total - left}/${total}` : 'BATTERIES SILENCED',
+        detail: left > 0 ? 'Coastal guns engaging — keep moving · reticle on the island, [1] gun · [3] missile' : 'The island is dark — proceed to the berth',
+        kind: 'combat',
+        urgent: left > 0,
+      };
+    }
+    const hunt = this.events.find((e) => e.kind === 'hunt' && e.fired && !e.done && !e.failed);
+    if (hunt) {
+      return {
+        title: 'SINK THE MOTHERSHIP',
+        detail: 'She is the bounty — kill the screen or run them down · [SPACE] fire · [Q] weapon',
+        kind: 'combat',
+        urgent: true,
+      };
+    }
     const threat = this.pirates.threat();
     if (threat.count > 0) {
       const boarding = threat.alongside > 0;
@@ -2399,6 +2600,7 @@ export class Game {
     for (const c of this.traffic.contacts()) pushC(c.x, c.z, c.type);
     for (const c of this.wildlife.contacts()) pushC(c.x, c.z, c.type);
     for (const s of this.storms) pushC(s.pos.x, s.pos.y, 'storm');
+    for (const s of this.combat.shore) if (s.alive) pushC(s.x, s.z, 'fort');
     if (this.raft && !this.raft.rescued) pushC(this.raft.pos.x, this.raft.pos.y, 'raft');
     const wp = this.waypoints[Math.min(this.wpIndex, n - 1)];
     const isFinal = this.wpIndex >= n - 1;
@@ -2416,12 +2618,14 @@ export class Game {
     const world: WorldMarker[] = [...this.pirates.markers(), ...this.wildlife.markers()];
     for (const wm of world) addM(wm.id, wm.type, wm.x, wm.z, wm.y, wm.label);
     if (this.raft && !this.raft.rescued) addM('raft', 'raft', this.raft.pos.x, this.raft.pos.y, 6, 'MAYDAY');
+    for (const s of this.combat.shore) if (s.alive) addM(`fort${s.id}`, 'fort', s.x, s.z, 14, `BATTERY ${Math.round(s.structural * 100)}%`);
     this.storms.forEach((s, i) => {
       const d = s.pos.distanceTo(this.pos);
       if (d < 3200 && d > s.radius) addM(`s${i}`, 'storm', s.pos.x, s.pos.y, 140, 'STORM');
     });
 
     const threat = this.pirates.threat();
+    const aim = this.combat.aimTarget();
     this.cbs.onTelemetry({
       speed: Math.abs(this.speed) * KN,
       maxSpeed: this.maxSpeed * 1.28 * KN,
@@ -2476,6 +2680,14 @@ export class Game {
       weaponHeat: this.combat.heat,
       weaponOverheated: this.combat.overheated,
       weaponSlot: this.combat.weaponIndex,
+      weaponCds: WEAPONS.map((_, i) => this.combat.cooldownOf(i)),
+      missiles: this.combat.ammo,
+      maxMissiles: this.combat.maxAmmo,
+      lock: this.combat.lock,
+      locked: this.combat.lockedOn,
+      aimOnTarget: !!aim,
+      aimKind: aim?.kind ?? null,
+      aimDist: aim?.dist ?? 0,
       shellsInFlight: this.combat.shellsInFlight,
       combat: this.combat.stats,
     });

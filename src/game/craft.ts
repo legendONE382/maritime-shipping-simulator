@@ -241,6 +241,8 @@ export function buildSkiff(seed: number): SkiffModel {
   ladder.rotation.z = 0.04;
   g.add(ladder);
   shadows(g);
+  /* game-feel scale: an honest 9.5 m skiff is invisible at engagement range; 1.6× reads right */
+  g.scale.setScalar(1.6);
   return { group: g, ladder };
 }
 
@@ -275,6 +277,8 @@ export function buildDhow(): THREE.Group {
   lamp.position.set(-10, 5.6, 0);
   g.add(lamp);
   shadows(g);
+  /* mothership presence: 30 m of dhow reads as a speck next to a loaded box ship */
+  g.scale.setScalar(1.55);
   return g;
 }
 
@@ -308,6 +312,7 @@ export function buildTrawler(seed: number): THREE.Group {
   lamp.position.set(5.5, 12.6, 0);
   g.add(lamp);
   shadows(g);
+  g.scale.setScalar(1.35);
   return g;
 }
 
@@ -366,6 +371,8 @@ export function buildHelicopter(): HeliModel {
   light.position.set(2.5, -1.6, 0);
   g.add(light);
   shadows(g);
+  /* a real helo at 300 m is a dot — cheat the scale up so the rescue reads */
+  g.scale.setScalar(1.75);
   return { group: g, rotor, tail };
 }
 
@@ -445,6 +452,7 @@ export function buildWhale(): WhaleModel {
   tail.add(flukes);
   g.add(tail);
   shadows(g);
+  g.scale.setScalar(1.45);
   return { group: g, tail };
 }
 
@@ -551,7 +559,144 @@ export function buildMooredMine(): THREE.Group {
     b.position.set(Math.cos(a) * 1.25, -0.4 - (i % 4) * 0.15, Math.sin(a) * 1.25);
     g.add(b);
   }
+  g.scale.setScalar(1.4);
   return g;
+}
+
+/* ----------------------------------------------------- island & fort --- */
+
+function islandRock() {
+  return share(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.94, metalness: 0.01, flatShading: true }));
+}
+
+/** Approximate ground height of the island dome — used to stand the forts on the sand rim. */
+function islandHeight(seed: number, radius: number, x: number, z: number): number {
+  const n = 1 + 0.22 * Math.sin(x * 0.021 + seed) * Math.cos(z * 0.017 + seed * 2.3) + 0.1 * Math.sin(z * 0.04 + seed * 0.7);
+  const d = Math.hypot(x * n, z * n) / radius;
+  const dome = Math.max(0, 1 - d * d);
+  return Math.max(0.8, dome * radius * 0.34 * (0.7 + 0.6 * Math.sin(seed + x * n * 0.011)));
+}
+
+/** A low fortified island: displaced dome with a sand rim, scrub and palms. */
+export function buildIsland(seed: number, radius: number): { group: THREE.Group; slots: THREE.Vector3[]; radius: number } {
+  const R = rng(seed * 167 + 13);
+  const g = new THREE.Group();
+  const geo = new THREE.IcosahedronGeometry(radius, 3);
+  const posA = geo.getAttribute('position') as THREE.BufferAttribute;
+  const col = new Float32Array(posA.count * 3);
+  const sand = new THREE.Color(0xc8b086);
+  const scrub = new THREE.Color(0x51663c);
+  const rock = new THREE.Color(0x77705f);
+  const c = new THREE.Color();
+  const v = new THREE.Vector3();
+  for (let i = 0; i < posA.count; i++) {
+    v.fromBufferAttribute(posA, i);
+    const d = Math.hypot(v.x, v.z) / radius;
+    const n = 1 + 0.22 * Math.sin(v.x * 0.021 + seed) * Math.cos(v.z * 0.017 + seed * 2.3) + 0.1 * Math.sin(v.z * 0.04 + seed * 0.7);
+    v.x *= n;
+    v.z *= n;
+    const dome = Math.max(0, 1 - d * d);
+    v.y = Math.max(-4, v.y * 0.16 + dome * radius * 0.34 * (0.7 + 0.6 * Math.sin(seed + v.x * 0.011)));
+    posA.setXYZ(i, v.x, v.y, v.z);
+    if (v.y < 3.5) c.copy(sand).multiplyScalar(0.9 + 0.2 * R());
+    else if (v.y < radius * 0.16) c.copy(scrub).multiplyScalar(0.85 + 0.3 * R());
+    else c.copy(rock).multiplyScalar(0.85 + 0.25 * R());
+    col[i * 3] = c.r;
+    col[i * 3 + 1] = c.g;
+    col[i * 3 + 2] = c.b;
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  geo.computeVertexNormals();
+  const land = new THREE.Mesh(geo, islandRock());
+  land.receiveShadow = true;
+  g.add(land);
+
+  /* shallow shelf of water around the islet so it sits in the sea */
+  const shelf = new THREE.Mesh(
+    new THREE.CircleGeometry(radius * 1.3, 40),
+    new THREE.MeshBasicMaterial({ color: 0x2e7d74, transparent: true, opacity: 0.5, depthWrite: false })
+  );
+  shelf.rotation.x = -Math.PI / 2;
+  shelf.position.y = -1.1;
+  shelf.renderOrder = 1;
+  g.add(shelf);
+
+  /* fort slots along the seaward rim (local −z faces the route) — on the beach, low */
+  const slots: THREE.Vector3[] = [];
+  for (let i = 0; i < 4; i++) {
+    const a = -Math.PI / 2 + (-0.62 + (i / 3) * 1.24) + (R() - 0.5) * 0.12;
+    const fx = Math.cos(a) * radius * 0.93;
+    const fz = Math.sin(a) * radius * 0.93;
+    slots.push(new THREE.Vector3(fx, Math.max(1.2, islandHeight(seed, radius, fx, fz) * 0.35), fz));
+  }
+  /* palms on the scrub band — cheap bent trunks and cone fronds */
+  const trunkM = mat(0x6e5230, 0.9, 0);
+  const leafM = mat(0x3e5e2c, 0.85, 0);
+  for (let i = 0; i < 7; i++) {
+    const a = R() * Math.PI * 2;
+    const rr = radius * (0.2 + R() * 0.42);
+    const px = Math.cos(a) * rr;
+    const pz = Math.sin(a) * rr;
+    const palm = new THREE.Group();
+    const h = 9 + R() * 5;
+    const trunk = cyl(0.22, 0.34, h, trunkM, 0, h / 2, 0, palm, 7);
+    trunk.rotation.z = (R() - 0.5) * 0.3;
+    for (let f = 0; f < 6; f++) {
+      const leaf = new THREE.Mesh(new THREE.ConeGeometry(0.9, 4.6, 4), leafM);
+      leaf.scale.set(0.3, 1, 0.08);
+      leaf.position.set(Math.cos((f / 6) * Math.PI * 2) * 2, h + 0.4, Math.sin((f / 6) * Math.PI * 2) * 2);
+      leaf.rotation.set(Math.sin((f / 6) * Math.PI * 2) * 1.2, 0, -Math.cos((f / 6) * Math.PI * 2) * 1.2);
+      palm.add(leaf);
+    }
+    palm.position.set(px, Math.max(2, radius * 0.3 * (1 - (rr / radius) ** 2)) - 0.5, pz);
+    g.add(palm);
+  }
+  g.traverse((o) => {
+    if ((o as THREE.Mesh).isMesh) o.castShadow = true;
+  });
+  return { group: g, slots, radius };
+}
+
+/** Concrete coastal gun emplacement. The `turret` group is trained by the combat system. */
+export function buildFort(): { group: THREE.Group; turret: THREE.Group } {
+  const g = new THREE.Group();
+  const concrete = mat(0x8a8a84, 0.95, 0.05);
+  const dark = mat(0x2c2f33, 0.6, 0.4);
+  box(11, 4.2, 8, concrete, 0, 2.1, 0, g);
+  box(11.6, 1, 8.6, concrete, 0, 4.6, 0, g);
+  box(3.4, 1.2, 8.1, mat(0x1a1c1e, 0.9, 0), 4.1, 2.6, 0, g);
+  /* sandbag ring */
+  const bagM = mat(0x9c8d6a, 0.95, 0);
+  for (let i = 0; i < 10; i++) {
+    const a = (i / 10) * Math.PI * 2;
+    const b = box(2.4, 1, 1.2, bagM, Math.cos(a) * 9.5, 0.6, Math.sin(a) * 8.1, g);
+    b.rotation.y = -a;
+  }
+  /* the gun */
+  const turret = new THREE.Group();
+  turret.name = 'turret';
+  cyl(2.6, 3.2, 1.6, dark, 0, 0.8, 0, turret, 14);
+  const barrelGeo = new THREE.CylinderGeometry(0.42, 0.55, 11, 10);
+  barrelGeo.translate(0, 5.5, 0);
+  const barrel = new THREE.Mesh(barrelGeo, dark);
+  barrel.rotation.z = -Math.PI / 2;
+  barrel.position.y = 2.2;
+  barrel.rotation.z = -Math.PI / 2 + 0.06;
+  turret.add(barrel);
+  const mantlet = new THREE.Mesh(new THREE.BoxGeometry(3.6, 2.4, 2.6), dark);
+  mantlet.position.set(1.4, 2.2, 0);
+  turret.add(mantlet);
+  turret.position.set(0, 4.9, 0);
+  g.add(turret);
+  /* radio mast with a pennant */
+  cyl(0.06, 0.09, 9, dark, -4.4, 8.5, -2.4, g, 5);
+  const flag = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 1.3), new THREE.MeshBasicMaterial({ color: 0x14100e, side: THREE.DoubleSide }));
+  flag.position.set(-3.2, 11.9, -2.4);
+  g.add(flag);
+  g.traverse((o) => {
+    if ((o as THREE.Mesh).isMesh) o.castShadow = true;
+  });
+  return { group: g, turret };
 }
 
 const debrisMats = new Map<number, THREE.MeshStandardMaterial>();

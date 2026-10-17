@@ -28,6 +28,7 @@ const MARKER_STYLE: Record<MarkerType, { color: string; glyph: string }> = {
   pirate: { color: '#f87171', glyph: '▲' },
   mothership: { color: '#fca5a5', glyph: '⛵' },
   navy: { color: '#86efac', glyph: '✚' },
+  fort: { color: '#fb923c', glyph: '▣' },
   whale: { color: '#93c5fd', glyph: '◒' },
   raft: { color: '#fb923c', glyph: '◉' },
   storm: { color: '#a78bfa', glyph: '◍' },
@@ -37,6 +38,7 @@ const CONTACT_COLOR: Record<ContactType, string> = {
   pirate: '#ff4d4d',
   mothership: '#ff9f9f',
   navy: '#86efac',
+  fort: '#fb923c',
   rock: '#c9a227',
   ice: '#9fe8ff',
   mine: '#ff8a3d',
@@ -382,6 +384,130 @@ function HoldButton({ code, onKey, children, className }: { code: string; onKey:
   );
 }
 
+/* ------------------------------------------------------------ gunnery --- */
+
+const SLOT_META: { icon: string; name: string; keyHint: string }[] = [
+  { icon: '🔫', name: '76MM', keyHint: '1' },
+  { icon: '🔱', name: 'CIWS', keyHint: '2' },
+  { icon: '🚀', name: 'VLS', keyHint: '3' },
+];
+
+/** One weapon slot in the dock: reload ring, active frame, ammo/heat state. */
+function WeaponSlot({
+  i,
+  fill,
+  active,
+  heat,
+  heatOn,
+  ammo,
+  size = 52,
+  onClick,
+}: {
+  i: number;
+  fill: number;
+  active: boolean;
+  heat?: number;
+  heatOn?: boolean;
+  ammo?: number;
+  size?: number;
+  onClick: () => void;
+}) {
+  const meta = SLOT_META[i];
+  const r = 22;
+  const c = 2 * Math.PI * r;
+  const f = Math.max(0, Math.min(1, fill));
+  const outOfAmmo = ammo !== undefined && ammo <= 0;
+  return (
+    <div className={`flex flex-col items-center gap-0.5 ${outOfAmmo ? 'opacity-40' : ''}`}>
+      <button
+        onClick={onClick}
+        className={`touch-btn relative grid place-items-center rounded-lg border backdrop-blur-sm transition ${
+          active ? 'border-red-300/70 bg-red-400/15 shadow-[0_0_18px_-4px_rgba(255,120,80,0.55)]' : 'border-white/20 bg-black/40 hover:bg-white/10'
+        }`}
+        style={{ width: size, height: size }}
+        title={`${meta.name} [${meta.keyHint}]`}
+      >
+        <svg className="absolute inset-0" viewBox="0 0 48 48">
+          <circle cx="24" cy="24" r={r} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="2.5" />
+          <circle cx="24" cy="24" r={r} fill="none" stroke={active ? '#fca5a5' : '#67e8f9'} strokeWidth="2.5" strokeDasharray={c} strokeDashoffset={c * (1 - f)} strokeLinecap="round" transform="rotate(-90 24 24)" />
+        </svg>
+        <span className={`text-[18px] leading-none ${f < 1 ? 'opacity-50' : ''}`}>{meta.icon}</span>
+        <span className="digits absolute left-1 top-0.5 rounded bg-black/60 px-1 text-[8px] font-bold text-white/70">{meta.keyHint}</span>
+        {ammo !== undefined && <span className="digits absolute -bottom-1 right-0 rounded bg-black/75 px-1 text-[9px] font-bold text-amber-200">×{ammo}</span>}
+      </button>
+      {heat !== undefined ? (
+        <div className="h-[3px] w-9 overflow-hidden rounded-full bg-white/12">
+          <div className={`h-full rounded-full ${heatOn ? 'animate-pulse' : ''}`} style={{ width: `${heat * 100}%`, background: heat > 0.8 ? '#f87171' : '#fbbf24' }} />
+        </div>
+      ) : (
+        <span className="label text-[7px] txt-shadow">{meta.name}</span>
+      )}
+    </div>
+  );
+}
+
+/** Mouse-following reticle — position is driven by ref so it tracks at full frame rate. */
+function Crosshair({ t }: { t: Telemetry }) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    let x = window.innerWidth * 0.5;
+    let y = window.innerHeight * 0.48;
+    const el = ref.current;
+    if (el) el.style.transform = `translate(${x}px, ${y}px)`;
+    const move = (e: PointerEvent) => {
+      x = e.clientX;
+      y = e.clientY;
+      if (el) el.style.transform = `translate(${x}px, ${y}px)`;
+    };
+    window.addEventListener('pointermove', move);
+    return () => window.removeEventListener('pointermove', move);
+  }, []);
+  const onT = t.aimOnTarget;
+  const locked = t.locked;
+  const col = locked ? '#f87171' : onT ? '#fb923c' : '#67e8f9';
+  const r = 21;
+  const c = 2 * Math.PI * r;
+  const lockable = t.weaponSlot === 2;
+  return (
+    <div ref={ref} className="absolute left-0 top-0 z-10 will-change-transform">
+      <div className="relative -ml-[26px] -mt-[26px] h-[52px] w-[52px]">
+        {/* lock progress ring (missiles) */}
+        {lockable && (
+          <svg className="absolute inset-0" viewBox="0 0 52 52">
+            <circle cx="26" cy="26" r={r} fill="none" stroke="rgba(255,255,255,0.10)" strokeWidth="2" />
+            <circle cx="26" cy="26" r={r} fill="none" stroke={col} strokeWidth="2.5" strokeDasharray={c} strokeDashoffset={c * (1 - t.lock)} strokeLinecap="round" transform="rotate(-90 26 26)" />
+          </svg>
+        )}
+        {/* reticle cross */}
+        <div className="absolute left-1/2 top-1/2 h-[3px] w-[3px] -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ background: col, boxShadow: `0 0 8px ${col}` }} />
+        {[0, 90, 180, 270].map((deg) => (
+          <div
+            key={deg}
+            className="absolute left-1/2 top-1/2 h-[9px] w-[2px]"
+            style={{
+              background: col,
+              boxShadow: `0 0 6px ${col}`,
+              transform: `translate(-50%,-50%) rotate(${deg}deg) translateY(${t.aimOnTarget ? -14 : -17}px)`,
+              transition: 'transform 120ms ease-out',
+              opacity: 0.9,
+            }}
+          />
+        ))}
+        {lockable && t.lock > 0.02 && (
+          <div className={`digits absolute left-1/2 top-[52px] -translate-x-1/2 whitespace-nowrap text-center text-[9px] font-bold tracking-[0.2em] ${locked ? 'edge-pulse' : ''}`} style={{ color: col }}>
+            {locked ? '◈ SEEKER LOCK' : `LOCK ${Math.round(t.lock * 100)}%`}
+          </div>
+        )}
+        {t.aimOnTarget && !lockable && (
+          <div className="digits absolute left-1/2 top-[50px] -translate-x-1/2 whitespace-nowrap text-[9px] tracking-[0.2em]" style={{ color: col }}>
+            {t.aimKind === 'fort' ? '◈ BATTERY' : t.aimKind === 'dhow' ? '◈ MOTHERSHIP' : '◈ SKIFF'} · {(t.aimDist / 1000).toFixed(2)} KM
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ------------------------------------------------------------------ HUD */
 export function Hud({
   telRef,
@@ -398,6 +524,7 @@ export function Hud({
   onHorn,
   onCamera,
   onNavy,
+  onWeapon,
   onKey,
   onZoomIn,
   onZoomOut,
@@ -417,6 +544,7 @@ export function Hud({
   onHorn: () => void;
   onCamera: () => void;
   onNavy: () => void;
+  onWeapon: (i: number) => void;
   onKey: (code: string, down: boolean) => void;
   onZoomIn?: () => void;
   onZoomOut?: () => void;
@@ -632,9 +760,21 @@ export function Hud({
             </div>
           )}
 
+          {/* crosshair reticle (fine pointers) */}
+          {!touch && <Crosshair t={t} />}
+
           {/* desktop ability dock */}
           {!touch && (
             <div className="pointer-events-auto absolute bottom-5 left-1/2 flex -translate-x-1/2 items-end gap-4">
+              <div className="flex items-end gap-2 rounded-xl border border-white/10 bg-black/30 px-2.5 py-2 backdrop-blur-sm">
+                <WeaponSlot i={0} fill={t.weaponCds[0] ?? 1} active={t.weaponSlot === 0} onClick={() => onWeapon(0)} />
+                <WeaponSlot i={1} fill={t.weaponCds[1] ?? 1} active={t.weaponSlot === 1} heat={t.weaponSlot === 1 ? t.weaponHeat : undefined} heatOn={t.weaponOverheated} onClick={() => onWeapon(1)} />
+                <WeaponSlot i={2} fill={t.weaponCds[2] ?? 1} active={t.weaponSlot === 2} ammo={t.missiles} onClick={() => onWeapon(2)} />
+                <div className="mb-1 pl-1 text-left">
+                  <div className="label text-[7px] txt-shadow">{t.weaponShort}</div>
+                  <div className="digits text-[8px] text-white/50 txt-shadow">CLICK / SPACE</div>
+                </div>
+              </div>
               <Ability icon="⚡" label="BOOST" hint="SHIFT" active={t.boosting} onDown={() => onKey('ShiftLeft', true)} onUp={() => onKey('ShiftLeft', false)} />
               {t.hasPirates && (
                 <Ability icon="💦" label="HOSES" hint="E" fill={t.hosePressure} active={t.hoseOn} ringColor="#7dd3fc" onDown={() => onKey('KeyE', true)} onUp={() => onKey('KeyE', false)} />
@@ -669,6 +809,15 @@ export function Hud({
                 </HoldButton>
               </div>
               <div className="pointer-events-auto absolute bottom-4 right-3 flex items-end gap-3">
+                <div className="flex flex-col items-center gap-2">
+                  <HoldButton code="KeyX" onKey={onKey} className="h-[72px] w-[72px] border-red-300/40 bg-red-500/15 text-[26px] active:bg-red-400/30">
+                    {SLOT_META[t.weaponSlot].icon}
+                  </HoldButton>
+                  <button onClick={() => onWeapon((t.weaponSlot + 1) % 3)} className="touch-btn digits rounded-lg border border-white/20 bg-black/45 px-2 py-1 text-[9px] tracking-wider text-cyan-100">
+                    {SLOT_META[t.weaponSlot].name}
+                    {t.weaponSlot === 2 ? ` ×${t.missiles}` : ''} ⟳
+                  </button>
+                </div>
                 <div className="grid grid-cols-2 gap-2">
                   {t.hasPirates && (
                     <Ability icon="💦" label="HOSE" fill={t.hosePressure} active={t.hoseOn} ringColor="#7dd3fc" size={46} onDown={() => onKey('KeyE', true)} onUp={() => onKey('KeyE', false)} />

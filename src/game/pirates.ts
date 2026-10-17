@@ -53,6 +53,8 @@ interface Dhow {
   speed: number;
   eventId: string;
   leaving: boolean;
+  /** hunt mission: this mothership is the objective — she shadows us for the kill */
+  hunter: boolean;
 }
 interface Skiff {
   obj: THREE.Group;
@@ -75,6 +77,7 @@ interface Skiff {
   eventId: string;
   dhow: Dhow | null;
   offset: THREE.Vector2;
+  hunter: boolean;
 }
 interface Heli {
   model: HeliModel;
@@ -137,17 +140,20 @@ export class PirateSystem {
     this.roughWarned = false;
   }
 
-  spawnAttack(eventId: string, count: number, side: number) {
+  spawnAttack(eventId: string, count: number, side: number, hunter = false) {
     const h = this.host;
     const fx = Math.cos(h.heading);
     const fy = Math.sin(h.heading);
     const rx = -fy;
     const rz = fx;
-    const dp = new THREE.Vector2(h.pos.x + fx * 650 + rx * side * 1050, h.pos.y + fy * 650 + rz * side * 1050);
+    /* hunters cut the corner: they spawn closer and wider, already working the intercept */
+    const ahead = hunter ? 850 : 650;
+    const abeam = hunter ? 1150 : 1050;
+    const dp = new THREE.Vector2(h.pos.x + fx * ahead + rx * side * abeam, h.pos.y + fy * ahead + rz * side * abeam);
     const obj = buildDhow();
     obj.position.set(dp.x, 0, dp.y);
     h.world.add(obj);
-    const dhow: Dhow = { obj, pos: dp, heading: h.heading, speed: 4, eventId, leaving: false };
+    const dhow: Dhow = { obj, pos: dp, heading: h.heading, speed: hunter ? 6 : 4, eventId, leaving: false, hunter };
     this.dhows.push(dhow);
     for (let i = 0; i < count; i++) {
       const m = buildSkiff(i * 7 + eventId.length * 3 + count);
@@ -177,9 +183,19 @@ export class PirateSystem {
         eventId,
         dhow,
         offset,
+        hunter,
       });
     }
     this.spawned.add(eventId);
+  }
+
+  /** A government-contract hunt: the mothership IS the objective. */
+  spawnHunt(eventId: string, count: number, side: number) {
+    this.spawnAttack(eventId, count, side, true);
+  }
+
+  dhowAlive(eventId: string): boolean {
+    return this.dhows.some((d) => d.eventId === eventId);
   }
 
   isSpawned(id: string) {
@@ -309,7 +325,7 @@ export class PirateSystem {
         s.chase += dt;
         s.ladderT = Math.max(0, s.ladderT - dt * 0.8);
         if (Math.hypot(tx - s.pos.x, tz - s.pos.y) < 22) s.state = 'alongside';
-        if (dist > 1500 || (s.chase > 22 && dist > 380 && spd > maxV * 0.92)) {
+        if (dist > (s.hunter ? 3000 : 1500) || (s.chase > (s.hunter ? 40 : 22) && dist > 380 && spd > maxV * 0.92)) {
           this.flee(s, 18);
           this.outran++;
           h.addBonus(Math.round(h.reward() * 0.01), 'OUTRAN SKIFF');
@@ -421,7 +437,12 @@ export class PirateSystem {
       if (d.leaving) {
         const away = Math.atan2(d.pos.y - h.pos.y, d.pos.x - h.pos.x);
         d.heading += wrap(away - d.heading) * Math.min(1, dt * 0.15);
-        d.speed = Math.min(6.5, d.speed + dt * 0.3);
+        d.speed = Math.min(d.hunter ? 7.5 : 6.5, d.speed + dt * 0.3);
+      } else if (d.hunter) {
+        /* hunters run parallel-close, keeping the fight on us */
+        const want = Math.atan2(h.pos.y - d.pos.y, h.pos.x - d.pos.x);
+        d.heading += wrap(want - d.heading) * Math.min(1, dt * 0.12);
+        d.speed = d.pos.distanceTo(h.pos) > 620 ? 9 : 5;
       } else {
         d.heading += wrap(h.heading - d.heading) * Math.min(1, dt * 0.1);
       }
@@ -431,7 +452,7 @@ export class PirateSystem {
       d.obj.rotation.y = -d.heading;
       d.obj.rotation.z = Math.sin(this.clock * 0.6 + i) * 0.04;
       d.obj.rotation.x = Math.sin(this.clock * 0.9 + i * 2) * 0.05;
-      if (d.leaving && d.pos.distanceTo(h.pos) > 3500) {
+      if (d.leaving && d.pos.distanceTo(h.pos) > (d.hunter ? 5500 : 3500)) {
         h.world.remove(d.obj);
         this.dhows.splice(i, 1);
       }
@@ -525,7 +546,7 @@ export class PirateSystem {
         });
     });
     this.dhows.forEach((d, i) => {
-      if (!d.leaving) out.push({ id: `dh${i}`, type: 'mothership', x: d.pos.x, y: 14, z: d.pos.y, label: 'MOTHERSHIP' });
+      if (!d.leaving) out.push({ id: `dh${i}`, type: 'mothership', x: d.pos.x, y: 20, z: d.pos.y, label: d.hunter ? '🎯 MOTHERSHIP' : 'MOTHERSHIP' });
     });
     if (this.heli && this.navyState === 'inbound')
       out.push({ id: 'heli', type: 'navy', x: this.heli.pos.x, y: this.heli.pos.y, z: this.heli.pos.z, label: `NAVY · ${Math.ceil(this.navyTimer)}s` });
@@ -546,11 +567,11 @@ export class PirateSystem {
     for (let i = 0; i < this.skiffs.length; i++) {
       const s = this.skiffs[i];
       if (s.state === 'flee') continue;
-      out.push({ key: `skiff-${s.eventId}-${i}`, kind: 'skiff', x: s.pos.x, z: s.pos.y, radius: 9, hitPoints: 72 });
+      out.push({ key: `skiff-${s.eventId}-${i}`, kind: 'skiff', x: s.pos.x, z: s.pos.y, radius: 12, hitPoints: 80 });
     }
     for (let i = 0; i < this.dhows.length; i++) {
       const d = this.dhows[i];
-      out.push({ key: `dhow-${d.eventId}-${i}`, kind: 'dhow', x: d.pos.x, z: d.pos.y, radius: 15, hitPoints: 160 });
+      out.push({ key: `dhow-${d.eventId}-${i}`, kind: 'dhow', x: d.pos.x, z: d.pos.y, radius: 21, hitPoints: 200 });
     }
     return out;
   }

@@ -154,6 +154,50 @@ export const CHAPTERS: Chapter[] = [
     ],
     post: [],
   },
+  {
+    mission: 6,
+    numeral: 'VII',
+    title: 'Guns for Hire',
+    pre: [
+      { speaker: 'reyes', text: "Meridian is finished, Captain — and so, almost, is the trade it built. Almost. Kestrel's network is bleeding, but the skiff packs still work the Malacca Strait." },
+      { speaker: 'reyes', text: 'The Coalition needs armed auxiliaries it can trust. Naval stores to Colombo — and if the packs come out, you are cleared to put them down. There is a bounty on every kill.' },
+      { speaker: 'okafor', text: "They've bolted a 76-millimetre gun onto my forecastle, Captain. My cargo ship. I don't know whether to be proud or terrified." },
+      { speaker: 'brandt', text: "A Phalanx on the bridge roof and Sea Lance missiles in a box forward. Strangest load I've ever signed for — but she's ready." },
+    ],
+    post: [
+      { speaker: 'reyes', text: 'Confirmed kills logged, bounty wired. The strait is quieter tonight because of you.' },
+      { speaker: 'kestrel', text: 'Guns now, Captain. You used to be interesting. Now you are merely dangerous.' },
+      { speaker: 'okafor', text: "He called within the hour of the last kill. He's watching us — or someone near him is." },
+    ],
+  },
+  {
+    mission: 7,
+    numeral: 'VIII',
+    title: 'The Island',
+    pre: [
+      { speaker: 'reyes', text: "Overflight found it. An islet off Socotra — bunkers, coastal guns, skiff pens. Kestrel's forward anchorage, and the source of every attack this year." },
+      { speaker: 'reyes', text: 'My frigates are twelve hours out. You are ninety minutes out. Rules of engagement: the batteries first, then anything that sorties.' },
+      { speaker: 'okafor', text: 'Precision munitions in the hold and coastal guns on the beach. If they hit our cargo, the fireworks will be seen from space.' },
+      { speaker: 'brandt', text: 'Keep her moving, Captain. A ship at flank speed is a hard target. A ship at dead slow is artillery practice.' },
+    ],
+    post: [
+      { speaker: 'okafor', text: 'The island is dark. Not one gun left. Listen to it — nothing.' },
+      { speaker: 'reyes', text: "Battery destruction confirmed by drone. Kestrel just lost his safe harbour, and he is very, very angry." },
+      { speaker: 'kestrel', text: "You shell men's homes now, Captain. Between us — I didn't think you had it in you. Judgement is coming." },
+    ],
+  },
+  {
+    mission: 8,
+    numeral: 'IX',
+    title: 'Judgement',
+    pre: [
+      { speaker: 'okafor', text: 'Kestrel Shoal. Everything he has left: four batteries, every skiff in the basin, and a storm to hide it all under.' },
+      { speaker: 'reyes', text: 'This is the last operation, Captain. Take the island and the network dies tonight. The Coalition owes you a clean sea.' },
+      { speaker: 'voss', text: 'Whatever happens out there — Bluewater survives because of you. That is worth more than the bonus. Almost.' },
+      { speaker: 'brandt', text: "She's fuelled, she's armed, and she's angry. Let's finish it." },
+    ],
+    post: [],
+  },
 ];
 
 export function chapterFor(missionId: number): Chapter | undefined {
@@ -251,6 +295,32 @@ export const RADIO: Record<number, RadioCue[]> = {
     { on: 'pirates', speaker: 'okafor', text: 'Last wave, Captain. Give them everything she has.', if: (f) => f.navy !== 'tell' },
     { at: 0.93, speaker: 'okafor', text: 'Kwai Chung in sight. Bring her home.' },
   ],
+  6: [
+    { on: 'start', speaker: 'brandt', text: 'Gun crews closed up and VLS armed, Captain. Left-click or [SPACE] to fire, [Q] to change weapon.' },
+    { on: 'hunt', speaker: 'reyes', text: 'Mothership bearing off your bow. Weapons free — put her down.' },
+    { on: 'pirates', speaker: 'reyes', text: 'Skiff pack inbound. CIWS will shred anything that closes inside 600 metres.' },
+    { on: 'kill', speaker: 'reyes', text: 'Splash one. Confirmed. The bounty accumulates nicely.' },
+    { at: 0.5, speaker: 'kestrel', text: 'You have become expensive to kill, Captain.' },
+    { at: 0.93, speaker: 'okafor', text: 'Colombo pilot station ahead. Guns safed, hands to docking stations.' },
+  ],
+  7: [
+    { on: 'start', speaker: 'okafor', text: 'The island is on radar. Those batteries reach out past a kilometre — we stay mobile or we die.' },
+    { on: 'shorestrike', speaker: 'reyes', text: 'Coastal guns are live — shells inbound. Reticle on the batteries, Captain. Make it loud.' },
+    { on: 'siteDestroyed', speaker: 'reyes', text: "Battery down, drone confirms. That's how it's done." },
+    { on: 'incoming', speaker: 'brandt', text: 'Shells in the air! Rudder over and pile on the revs!' },
+    { on: 'pirates', speaker: 'okafor', text: "They've sortied the skiffs — keep them off the forecastle while the big gun works!" },
+    { at: 0.93, speaker: 'okafor', text: 'Djibouti lights on the horizon. We are still afloat — which surprises me.' },
+  ],
+  8: [
+    { on: 'start', speaker: 'okafor', text: 'Kestrel Shoal dead ahead. Storm cover will not hide four batteries from this radar.' },
+    { on: 'shorestrike', speaker: 'kestrel', text: 'Captain. My island says hello. Let us see if your Sea Lances are faster than my guns.' },
+    { on: 'siteDestroyed', speaker: 'reyes', text: 'Another battery silent. Their grid is collapsing — keep firing!' },
+    { on: 'kill', speaker: 'reyes', text: "Another hull down. Kestrel's navy is running out of ships." },
+    { on: 'hunt', speaker: 'reyes', text: "That's his last mothership on your scope. Finish it." },
+    { at: 0.58, speaker: 'kestrel', text: 'ENOUGH. Take the ships, take the sea — Kestrel Shoal is MINE.' },
+    { on: 'distress', speaker: 'okafor', text: "A raft — survivors from Kestrel's own people. We stop. That's who we are." },
+    { at: 0.93, speaker: 'reyes', text: 'Victoria pilot coming out. It is over, Captain. Come home.' },
+  ],
 };
 
 export const GENERIC_RADIO: Record<string, { speaker: string; text: string }[]> = {
@@ -272,6 +342,31 @@ export const GENERIC_RADIO: Record<string, { speaker: string; text: string }[]> 
     { speaker: 'brandt', text: "Nothing like eighty tonnes of seawater an hour to cool a man's ambitions." },
   ],
   outran: [{ speaker: 'okafor', text: "They can't hold our speed. Skiff falling astern!" }],
+  kill: [
+    { speaker: 'brandt', text: "Scratch one — she's going down by the bow!" },
+    { speaker: 'okafor', text: 'Direct hit. Target destroyed. Guns crew is grinning like children.' },
+  ],
+  missile: [
+    { speaker: 'brandt', text: "VLS away! Bird's in the air and seeking!" },
+    { speaker: 'okafor', text: 'Sea Lance launched — seeker active, watch it fly.' },
+  ],
+  siteDestroyed: [
+    { speaker: 'okafor', text: "Battery's gone — look at it burn." },
+    { speaker: 'brandt', text: 'Secondary explosions! Magazine cooked off — scratch one gun.' },
+  ],
+  fortHit: [
+    { speaker: 'brandt', text: "Hit! Concrete's cracked but she's still standing — again!" },
+  ],
+  incoming: [
+    { speaker: 'okafor', text: 'Incoming shellfire — hang on!' },
+    { speaker: 'brandt', text: 'Shells in the air! Evasive rudder — GO!' },
+  ],
+  hunt: [
+    { speaker: 'okafor', text: 'Mothership on radar — fat, slow and full of fuel. Weapons free, Captain.' },
+  ],
+  shorestrike: [
+    { speaker: 'okafor', text: 'Batteries opening up from the shore! Evasive pattern!' },
+  ],
   navy: [{ speaker: 'reyes', text: 'Aurora, Warship Valiant. Helicopter launching — keep them off you until we arrive.' }],
   navyArrive: [{ speaker: 'reyes', text: 'Helicopter on scene. All skiffs, this is the navy — break off now.' }],
   storm: [

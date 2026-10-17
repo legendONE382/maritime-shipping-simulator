@@ -156,6 +156,11 @@ export default function App() {
             hoseRepels: prev.totals.hoseRepels + s.hoseRepels,
             whalesSafe: prev.totals.whalesSafe + s.whaleSafe,
             outran: prev.totals.outran + s.outran,
+            /* gunnery tallies feed the Mothership Hunter / Marksman / Island Breaker awards */
+            skiffsSunk: prev.totals.skiffsSunk + s.combat.skiffsSunk,
+            motherships: prev.totals.motherships + s.combat.mothershipsSunk,
+            forts: prev.totals.forts + s.combat.shoreSitesDestroyed,
+            missiles: prev.totals.missiles + s.combat.missilesFired,
           };
           const next: SaveData = { ...prev, totals, voyages: prev.voyages + 1 };
           if (s.success) {
@@ -375,7 +380,7 @@ export default function App() {
 
   return (
     <div className="relative h-dvh w-screen overflow-hidden bg-[#02090f]">
-      <div ref={hostRef} className="absolute inset-0" />
+      <div ref={hostRef} className={`absolute inset-0 ${phase === 'play' && !layout.touch ? 'cursor-none' : ''}`} style={{ cursor: phase === 'play' && !layout.touch ? 'none' : 'auto' }} />
 
       {inGame && (
         <Hud
@@ -393,6 +398,7 @@ export default function App() {
           onHorn={() => gameRef.current?.horn()}
           onCamera={() => gameRef.current?.cycleCamera()}
           onNavy={() => gameRef.current?.callNavy()}
+          onWeapon={(i) => gameRef.current?.selectWeapon(i)}
           onKey={(c, d) => gameRef.current?.setKey(c, d)}
           onZoomIn={() => gameRef.current?.zoomCamera(-60)}
           onZoomOut={() => gameRef.current?.zoomCamera(60)}

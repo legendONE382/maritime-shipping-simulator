@@ -117,7 +117,7 @@ export class TrafficSystem {
     obj.rotation.order = 'YXZ';
     obj.position.set(p.x, 0, p.y);
     this.host.world.add(obj);
-    const v = this.base('merchant', obj, p, heading, speed, 118, 18, MERCHANT_NAMES[this.nameIdx++ % MERCHANT_NAMES.length]);
+    const v = this.base('merchant', obj, p, heading, speed, 128, 20, MERCHANT_NAMES[this.nameIdx++ % MERCHANT_NAMES.length]);
     v.wake = this.host.ocean.createWake();
     this.vessels.push(v);
   }
