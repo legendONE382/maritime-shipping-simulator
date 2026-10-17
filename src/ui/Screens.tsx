@@ -36,13 +36,13 @@ export function Controls({ touch }: { touch: boolean }) {
       <div className="grid grid-cols-2 gap-x-5 gap-y-1.5 text-[11px] text-slate-300/85">
         <div>◀ ▶ Rudder</div>
         <div>▲ ▼ Engine telegraph</div>
-        <div>🔫 Tap-gun fires · hold to spray</div>
-        <div>🚀 VLS seeks a locked contact</div>
-        <div>⟳ Chip cycles the weapons</div>
-        <div>💦 Hold to fire hoses</div>
-        <div>📡 LRAD scatters skiffs</div>
-        <div>🚁 Call the navy (once)</div>
-        <div>⚡ Hold for emergency power</div>
+        <div>GUN · FIRE — tap · hold to spray</div>
+        <div>MSL — lock a contact, then launch</div>
+        <div>WPN chip — cycles the mounts</div>
+        <div>HOSE — hold to run the fire mains</div>
+        <div>LRAD — scatter the skiffs</div>
+        <div>HELO — navy picket (once per voyage)</div>
+        <div>ENG — hold for emergency power</div>
       </div>
     );
   return (
@@ -295,11 +295,11 @@ export function MainMenu({
               </div>
             </div>
 
-            <button onClick={() => onStart(save.storyDone ? m : MISSIONS[Math.min(save.unlocked, MISSIONS.length - 1)])} className={`${PRIMARY} w-full px-6 py-4 text-[12px]`}>
+            <button onClick={() => onStart(save.storyDone ? m : MISSIONS[Math.min(save.unlocked, MISSIONS.length - 1)])} className={`${PRIMARY} cta-pulse w-full px-6 py-5 text-[15px]`}>
               <span className="relative z-10">
                 {save.storyDone
-                  ? `⚓ SET SAIL — ${chapterFor(m.id) ? `CHAPTER ${ch?.numeral}` : m.title.toUpperCase()}`
-                  : `⚔ SET SAIL — ${(() => {
+                  ? `▶ SET SAIL — ${chapterFor(m.id) ? `CHAPTER ${ch?.numeral}` : m.title.toUpperCase()}`
+                  : `▶ PLAY NOW — ${(() => {
                       const qch = chapterFor(MISSIONS[Math.min(save.unlocked, MISSIONS.length - 1)].id);
                       return qch ? `CHAPTER ${qch.numeral}` : 'NEXT VOYAGE';
                     })()}`}
@@ -436,42 +436,32 @@ export function MainMenu({
 }
 
 /* ------------------------------------------------------------- briefing */
-export function Briefing({ m, touch, onGo, onBack }: { m: MissionDef; touch: boolean; onGo: () => void; onBack: () => void }) {
+export function Briefing({ m, onGo, onBack }: { m: MissionDef; touch: boolean; onGo: () => void; onBack: () => void }) {
   const par = `${Math.floor(m.parTime / 60)}:${(m.parTime % 60).toString().padStart(2, '0')}`;
   return (
     <div className="absolute inset-0 overflow-y-auto bg-black/60 backdrop-blur-[3px]">
-      <div className="mx-auto flex min-h-full max-w-[700px] items-center px-4 py-6">
-        <div className="fade-up panel bracket relative w-full rounded-xl p-5 md:p-7">
+      <div className="mx-auto flex min-h-full max-w-[560px] items-center px-4 py-5">
+        <div className="fade-up panel bracket relative w-full rounded-xl p-5 md:p-6">
           <div className="flex items-start justify-between gap-3">
             <div>
               <div className="digits text-[9px] tracking-[0.3em] text-cyan-300/70">{m.chapter ? m.chapter.toUpperCase() : `VOYAGE ORDERS · ${m.code}`}</div>
-              <h2 className="mt-1 text-[28px] font-bold leading-tight text-white md:text-[34px]">{m.title}</h2>
+              <h2 className="mt-1 text-[26px] font-bold leading-tight text-white md:text-[32px]">{m.title}</h2>
               <div className="digits mt-1 text-[12px] text-slate-300">
-                {m.from} <span className="text-cyan-300">──▶</span> {m.to} · {m.distanceKm} km · {m.region}
+                {m.from} <span className="text-cyan-300">──▶</span> {m.to} · {m.distanceKm} km
               </div>
             </div>
             <div className={`digits shrink-0 rounded border px-2 py-1 text-[10px] ${DIFF_COLOR[m.difficulty]}`}>{m.difficulty}</div>
           </div>
 
-          <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-4">
-            {[
-              ['Cargo', m.cargoDesc],
-              ['Charter value', `$${m.reward.toLocaleString()}`],
-              ['Weather', m.weather.toUpperCase()],
-              ['3★ time', `under ${par}`],
-            ].map(([k, v]) => (
-              <div key={k} className="panel-slim rounded p-2.5">
-                <div className="label">{k}</div>
-                <div className="digits mt-0.5 text-[11.5px] text-cyan-100">{v}</div>
-              </div>
-            ))}
+          <div className="digits mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[10.5px] text-slate-300">
+            <span>${m.reward.toLocaleString()}</span>
+            <span>{m.weather.toUpperCase()}</span>
+            <span>3★ under {par}</span>
+            <span className="text-slate-500">{m.cargoDesc}</span>
           </div>
 
-          <div className="mt-5">
-            <div className="label mb-3">Intelligence along the track</div>
+          <div className="mt-4">
             <div className="relative mx-2 h-[2px] rounded bg-gradient-to-r from-cyan-400/60 via-white/30 to-amber-300/70">
-              <div className="absolute -left-2 -top-[7px] text-[12px]">🏠</div>
-              <div className="absolute -right-2 -top-[7px] text-[12px]">⚓</div>
               {m.events.map((e, i) => (
                 <div key={i} className="absolute -top-[9px] -translate-x-1/2" style={{ left: `${e.at * 100}%` }}>
                   <div className="grid h-5 w-5 place-items-center rounded-full border border-white/25 bg-[#07202f] text-[10px]">{EVENT_META[e.kind].icon}</div>
@@ -479,53 +469,35 @@ export function Briefing({ m, touch, onGo, onBack }: { m: MissionDef; touch: boo
               ))}
               {(m.choices ?? []).map((c) => (
                 <div key={c.id} className="absolute -top-[9px] -translate-x-1/2" style={{ left: `${c.at * 100}%` }}>
-                  <div className="grid h-5 w-5 place-items-center rounded-full border border-amber-300/50 bg-[#2a1d07] text-[10px]">❓</div>
+                  <div className="grid h-5 w-5 place-items-center rounded-full border border-amber-300/50 bg-[#2a1d07] text-[10px]">?</div>
                 </div>
               ))}
             </div>
-            <div className="mt-5 space-y-1.5">
+            <div className="mt-3 flex flex-wrap gap-x-3 gap-y-0.5 text-[10.5px] text-slate-300">
               {m.events.map((e, i) => (
-                <div key={i} className="flex items-center gap-2 text-[11.5px] text-slate-300">
-                  <span className="digits w-9 text-[9px] text-slate-500">{Math.round(e.at * 100)}%</span>
-                  <span>{EVENT_META[e.kind].icon}</span>
-                  <span>{EVENT_META[e.kind].task(e)}</span>
-                  {e.kind === 'distress' && <span className="text-[9px] text-slate-500">optional · bonus</span>}
-                </div>
+                <span key={i} className="flex items-center gap-1">
+                  {EVENT_META[e.kind].icon} {EVENT_META[e.kind].label}
+                </span>
               ))}
-              {(m.choices ?? []).map((c) => (
-                <div key={c.id} className="flex items-center gap-2 text-[11.5px] text-amber-200/80">
-                  <span className="digits w-9 text-[9px] text-slate-500">{Math.round(c.at * 100)}%</span>
-                  <span>❓</span>
-                  <span>Someone will make you an offer over the radio</span>
-                </div>
-              ))}
-              <div className="flex items-center gap-2 text-[11.5px] text-slate-300">
-                <span className="digits w-9 text-[9px] text-slate-500">100%</span>
-                <span>⚓</span>
-                <span>Berth at {m.to} under 8 knots</span>
-              </div>
+              <span className="flex items-center gap-1">⚓ Berth &lt;8 kn</span>
             </div>
           </div>
 
-          <div className="mt-5 space-y-1.5">
+          <div className="mt-4 space-y-1">
             <div className="label">Master's briefing</div>
-            {m.brief.map((b) => (
-              <div key={b} className="flex gap-2 text-[12px] leading-relaxed text-slate-300">
-                <span className="mt-[7px] h-1 w-1 shrink-0 rounded-full bg-cyan-300" />
+            {m.brief.slice(0, 2).map((b) => (
+              <div key={b} className="line-clamp-2 text-[11.5px] leading-snug text-slate-400">
                 {b}
               </div>
             ))}
-          </div>
-
-          <div className="mt-5 border-t border-white/10 pt-4">
-            <Controls touch={touch} />
           </div>
 
           <div className="mt-5 flex items-center justify-between gap-3">
             <button onClick={onBack} className="digits text-[11px] tracking-widest text-slate-400 hover:text-slate-200">
               ← BACK
             </button>
-            <button onClick={onGo} className={`${PRIMARY} px-6 py-3 text-[12px]`}>
+            <span className="digits hidden text-[9px] tracking-[0.2em] text-slate-500 md:inline">CLICK / SPACE — GUNS</span>
+            <button onClick={onGo} className={`${PRIMARY} px-8 py-3.5 text-[13px]`}>
               <span className="relative z-10">SET SAIL</span>
               <span className="sheen absolute inset-0" />
             </button>

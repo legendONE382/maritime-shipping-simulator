@@ -322,6 +322,17 @@ export class CombatSystem {
   private nextShoreId = 1;
   private pendingKills: { key: string; kind: TargetKind }[] = [];
 
+  /* visible ordnance: cheap mesh pools so shells, missiles and warheads read in 3D */
+  private shellMeshes: THREE.Mesh[] = [];
+  private missileMeshes: THREE.Mesh[] = [];
+  private flashLight: THREE.PointLight;
+  private flashT = 0;
+  private tmpDir = new THREE.Vector3();
+  private matCannon!: THREE.MeshBasicMaterial;
+  private matCiws!: THREE.MeshBasicMaterial;
+  private matEnemy!: THREE.MeshBasicMaterial;
+  private static readonly X_AXIS = new THREE.Vector3(1, 0, 0);
+
   /** aim point on the water, updated by the host from the player's reticle */
   private aimX = 1e9;
   private aimZ = 1e9;
@@ -337,6 +348,35 @@ export class CombatSystem {
     this.bursts = new FxLayer(low ? 120 : 220, tracerTex());
     host.world.add(this.tracers.points);
     host.world.add(this.bursts.points);
+    /* visible ordnance: cheap mesh pools so shells, missiles and warheads read in 3D */
+    const shellGeo = new THREE.CylinderGeometry(0.4, 0.4, 3.8, 5);
+    shellGeo.rotateZ(Math.PI / 2);
+    this.matCannon = new THREE.MeshBasicMaterial({ color: 0xffd9a0 });
+    this.matCiws = new THREE.MeshBasicMaterial({ color: 0xb8ecff });
+    this.matEnemy = new THREE.MeshBasicMaterial({ color: 0xff8a66 });
+    for (let i = 0; i < 56; i++) {
+      const m = new THREE.Mesh(shellGeo, this.matCannon);
+      m.visible = false;
+      m.frustumCulled = false;
+      host.world.add(m);
+      this.shellMeshes.push(m);
+    }
+    const missileBody = new THREE.CylinderGeometry(0.55, 0.42, 7.2, 7);
+    missileBody.rotateZ(Math.PI / 2);
+    const missileBodyCones = new THREE.ConeGeometry(0.55, 1.9, 7);
+    missileBodyCones.rotateZ(-Math.PI / 2);
+    missileBodyCones.translate(4.5, 0, 0);
+    const missileMat = new THREE.MeshStandardMaterial({ color: 0xd8dde2, roughness: 0.35, metalness: 0.55, emissive: 0x332a18 });
+    for (let i = 0; i < 6; i++) {
+      const m = new THREE.Mesh(missileBody, missileMat);
+      m.add(new THREE.Mesh(missileBodyCones, new THREE.MeshBasicMaterial({ color: 0xffc34d })));
+      m.visible = false;
+      m.frustumCulled = false;
+      host.world.add(m);
+      this.missileMeshes.push(m);
+    }
+    this.flashLight = new THREE.PointLight(0xffc37a, 0, 420, 1.6);
+    host.world.add(this.flashLight);
   }
 
   reset() {
@@ -365,6 +405,8 @@ export class CombatSystem {
     this.host.world.remove(this.bursts.points);
     this.tracers.points.geometry.dispose();
     this.bursts.points.geometry.dispose();
+    for (const m of [...this.shellMeshes, ...this.missileMeshes]) this.host.world.remove(m);
+    this.host.world.remove(this.flashLight);
   }
 
   get weapon(): WeaponSpec {
@@ -426,6 +468,11 @@ export class CombatSystem {
   setAim(x: number, z: number) {
     this.aimX = x;
     this.aimZ = z;
+  }
+
+  /** Where the reticle sits — barrels and launchers train on this. */
+  getAimPoint(): { x: number; z: number } | null {
+    return isFinite(this.aimX) ? { x: this.aimX, z: this.aimZ } : null;
   }
 
   registerShoreSite(eventId: string, x: number, z: number, radius: number, gun = true): ShoreSite {
@@ -647,6 +694,9 @@ export class CombatSystem {
       const f = s / 4;
       this.tracers.push(sx + nx * f * 26, sy + f * vy * 0.03, sz + nz * f * 26, w.kind === 'ciws' ? CIWS_COLOR : CANNON_COLOR, 0.9, 1.4);
     }
+    /* muzzle light: a bright blink at the gun */
+    this.flashLight.position.set(sx, sy + 2, sz);
+    this.flashT = Math.max(this.flashT, 0.09);
     return w.burst;
   }
 
@@ -694,6 +744,45 @@ export class CombatSystem {
     this.cds.missile = Math.max(0, this.cds.missile - dt);
     this.heat = Math.max(0, this.heat - dt * 0.26);
     if (this.noAmmoToast > 0) this.noAmmoToast -= dt;
+
+    /* ordnance visuals: drive the mesh pools from live shell state */
+    {
+      let bi = 0;
+      let mi = 0;
+      for (const s of this.shells) {
+        if (s.kind === 'missile') {
+          const m = this.missileMeshes[mi++];
+          if (m) {
+            m.visible = true;
+            m.position.set(s.x, s.y, s.z);
+            const sp = Math.hypot(s.vx, s.vy, s.vz);
+            if (sp > 4) {
+              this.tmpDir.set(s.vx / sp, s.vy / sp, s.vz / sp);
+              m.quaternion.setFromUnitVectors(CombatSystem.X_AXIS, this.tmpDir);
+            }
+          }
+        } else {
+          const m = this.shellMeshes[bi++];
+          if (m) {
+            m.visible = true;
+            m.material = s.enemy ? this.matEnemy : s.kind === 'ciws' ? this.matCiws : this.matCannon;
+            m.position.set(s.x, s.y, s.z);
+            const sp = Math.hypot(s.vx, s.vy, s.vz);
+            if (sp > 1) {
+              this.tmpDir.set(s.vx / sp, s.vy / sp, s.vz / sp);
+              m.quaternion.setFromUnitVectors(CombatSystem.X_AXIS, this.tmpDir);
+            }
+          }
+        }
+      }
+      for (; bi < this.shellMeshes.length; bi++) this.shellMeshes[bi].visible = false;
+      for (; mi < this.missileMeshes.length; mi++) this.missileMeshes[mi].visible = false;
+    }
+
+    /* muzzle/blast light decay */
+    this.flashT -= dt;
+    if (this.flashT <= 0) this.flashLight.intensity = 0;
+    else this.flashLight.intensity = (this.flashT / 0.35) * 26;
 
     /* missile seeker: keep the reticle on the same contact to build a lock */
     if (this.weapon.kind === 'missile') {
@@ -988,12 +1077,21 @@ export class CombatSystem {
       const r = radius * (0.3 + Math.random() * 0.8);
       this.host.spray.spawn(x + Math.cos(a) * r, 5 + Math.random() * 10, z + Math.sin(a) * r, Math.cos(a) * (20 + r), 14 + Math.random() * 24, Math.sin(a) * (20 + r), 1.0, 3.2, 0.7);
     }
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 14; i++) {
       const a = Math.random() * Math.PI * 2;
       const r = radius * (0.2 + Math.random() * 0.6);
-      this.host.debris.spawn(x + Math.cos(a) * r, 5 + Math.random() * 12, z + Math.sin(a) * r, Math.cos(a) * 34, 16 + Math.random() * 30, Math.sin(a) * 34, 0.8, 2.2, 1);
+      this.host.debris.spawn(x + Math.cos(a) * r, 5 + Math.random() * 14, z + Math.sin(a) * r, Math.cos(a) * (26 + r), 16 + Math.random() * 34, Math.sin(a) * (26 + r), 1.1, 2.6, 1);
     }
-    this.bursts.push(x, 10, z, BLAST_COLOR, 1, radius * 1.6);
+    /* layered detonation: hot core, fireball, smoke crown */
+    this.bursts.push(x, 8, z, BLAST_COLOR, 1, radius * 1.8);
+    this.bursts.push(x, 10, z, MUZZLE_COLOR, 0.95, radius * 1.1);
+    for (let i = 0; i < 4; i++) {
+      const ox = (Math.random() - 0.5) * radius;
+      const oz = (Math.random() - 0.5) * radius;
+      this.bursts.push(x + ox, 5 + Math.random() * 14, z + oz, i % 2 ? SPLASH_COLOR : BLAST_COLOR, 0.75, radius * (0.4 + Math.random() * 0.6));
+    }
+    this.flashLight.position.set(x, 14, z);
+    this.flashT = Math.max(this.flashT, 0.28);
     this.host.audio.gun(0.35);
   }
 

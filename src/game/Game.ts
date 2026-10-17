@@ -1243,7 +1243,9 @@ export class Game {
       mz = this.pos.y + fy * 40;
       my = 12;
     } else {
-      const side = Math.floor(performance.now() / 90) % 2 === 0 ? 1 : -1;
+      /* cannon fires from the wing gun facing the crosshair */
+      const aim = this.combat.getAimPoint();
+      const side = aim ? ((aim.x - this.pos.x) * -fy + (aim.z - this.pos.y) * fx > 0 ? 1 : -1) : Math.floor(performance.now() / 90) % 2 === 0 ? 1 : -1;
       mx = this.pos.x + fx * 58 - fy * side * 11.5;
       mz = this.pos.y + fy * 58 + fx * side * 11.5;
     }
@@ -1251,6 +1253,7 @@ export class Game {
     if (launched === 0 && this.combat.overheated) this.toast('Barrel overheated — she is cooling.', 'warn');
     else if (launched > 0) {
       this.muzzleTimer = 0.08;
+      this.shake = Math.max(this.shake, w.kind === 'missile' ? 0.22 : w.kind === 'cannon' ? 0.16 : 0.05);
       this.audio.init();
       if (w.kind !== 'missile') this.say('firing');
     }
@@ -1535,6 +1538,7 @@ export class Game {
     const stern = new THREE.Vector2(this.pos.x - fx * 80, this.pos.y - fy * 80);
     this.pirates.update(dt);
     this.traffic.update(dt, hull, bow, stern);
+    this.updateCollisionWarning(dt);
     this.wildlife.update(dt, hull);
     this.syncCombatTargets();
     this.updateAim(rawDt);
@@ -1568,6 +1572,28 @@ export class Game {
     const fx = Math.cos(this.heading);
     const fy = Math.sin(this.heading);
     return HULL_PTS.map(([o, r]) => [this.pos.x + fx * o, this.pos.y + fy * o, r]);
+  }
+
+  /* close-quarters theater: ARPA-style warning when traffic crowds the bow */
+  private collisionCd = 0;
+  private updateCollisionWarning(dt: number) {
+    if (this.collisionCd > 0) {
+      this.collisionCd -= dt;
+      return;
+    }
+    for (const c of this.traffic.contacts()) {
+      const d = Math.hypot(c.x - this.pos.x, c.z - this.pos.y);
+      if (d < 430) {
+        this.collisionCd = 16;
+        this.toast('COLLISION RISK — alter course or slow down.', 'danger');
+        if (d < 300) {
+          this.banner('STAND BY FOR IMPACT', 'Close quarters — hard rudder, dead slow ahead', 'danger');
+          this.audio.alarm();
+        }
+        this.shake = Math.max(this.shake, 0.08);
+        break;
+      }
+    }
   }
 
   private updateInput(dt: number) {
@@ -2215,22 +2241,28 @@ export class Game {
     this.combat.targets = [...this.combatTargets.values()];
   }
 
-  /** Animate the deck gun barrels and CIWS towards whatever they are tracking. */
+  /** Animate the deck gun barrels and CIWS towards the crosshair (falls back to hostiles). */
   private animateWeaponMounts(dt: number) {
     const fx = Math.cos(this.heading);
     const fy = Math.sin(this.heading);
     const w = this.combat.weapon;
     let trackX = this.pos.x + fx * 300;
     let trackZ = this.pos.y + fy * 300;
-    const t = this.combat.nearestTarget(this.pos.x, this.pos.y, w.range);
-    if (t) {
-      trackX = t.x;
-      trackZ = t.z;
+    const aim = this.combat.getAimPoint();
+    if (aim) {
+      trackX = aim.x;
+      trackZ = aim.z;
     } else {
-      const s = this.combat.nearestShore(this.pos.x, this.pos.y, w.range * 1.4);
-      if (s) {
-        trackX = s.x;
-        trackZ = s.z;
+      const t = this.combat.nearestTarget(this.pos.x, this.pos.y, w.range);
+      if (t) {
+        trackX = t.x;
+        trackZ = t.z;
+      } else {
+        const s = this.combat.nearestShore(this.pos.x, this.pos.y, w.range * 1.4);
+        if (s) {
+          trackX = s.x;
+          trackZ = s.z;
+        }
       }
     }
     /* barrels lean left/right when tracking, and pitch with the muzzle rise */

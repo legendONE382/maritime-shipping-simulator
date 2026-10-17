@@ -266,7 +266,7 @@ function RadioBox({ msg, compact }: { msg: RadioMsg; compact: boolean }) {
           <span className="text-[12px] font-bold" style={{ color: info.color }}>
             {info.name}
           </span>
-          <span className="digits text-[8px] tracking-[0.2em] text-white/40">📻 {info.role.toUpperCase()}</span>
+          <span className="digits text-[8px] tracking-[0.2em] text-white/40">VHF · {info.role.toUpperCase()}</span>
         </div>
         <div className={`leading-snug text-slate-100 ${compact ? 'text-[10.5px]' : 'text-[12.5px]'}`}>{msg.text.slice(0, n)}</div>
       </div>
@@ -356,7 +356,7 @@ function Ability({
             transform="rotate(-90 24 24)"
           />
         </svg>
-        <span className={`text-[19px] leading-none ${ready || active ? '' : 'opacity-50'}`}>{icon}</span>
+        <span className={/^[A-Z0-9+\- ]{1,6}$/i.test(icon) ? `digits text-[9px] font-black tracking-wider ${ready || active ? '' : 'opacity-50'}` : `text-[19px] leading-none ${ready || active ? '' : 'opacity-50'}`}>{icon}</span>
         {badge && <span className="digits absolute -bottom-1 rounded bg-black/70 px-1 text-[9px] font-bold text-white">{badge}</span>}
       </button>
       <span className="label text-[7px] txt-shadow">
@@ -387,9 +387,9 @@ function HoldButton({ code, onKey, children, className }: { code: string; onKey:
 /* ------------------------------------------------------------ gunnery --- */
 
 const SLOT_META: { icon: string; name: string; keyHint: string }[] = [
-  { icon: '🔫', name: '76MM', keyHint: '1' },
-  { icon: '🔱', name: 'CIWS', keyHint: '2' },
-  { icon: '🚀', name: 'VLS', keyHint: '3' },
+  { icon: '76', name: 'DECK GUN', keyHint: '1' },
+  { icon: '30', name: 'CIWS', keyHint: '2' },
+  { icon: 'MSL', name: 'VLS', keyHint: '3' },
 ];
 
 /** One weapon slot in the dock: reload ring, active frame, ammo/heat state. */
@@ -431,7 +431,7 @@ function WeaponSlot({
           <circle cx="24" cy="24" r={r} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="2.5" />
           <circle cx="24" cy="24" r={r} fill="none" stroke={active ? '#fca5a5' : '#67e8f9'} strokeWidth="2.5" strokeDasharray={c} strokeDashoffset={c * (1 - f)} strokeLinecap="round" transform="rotate(-90 24 24)" />
         </svg>
-        <span className={`text-[18px] leading-none ${f < 1 ? 'opacity-50' : ''}`}>{meta.icon}</span>
+        <span className={`digits text-[12px] font-black tracking-wider ${f < 1 ? 'opacity-50' : ''}`}>{meta.icon}</span>
         <span className="digits absolute left-1 top-0.5 rounded bg-black/60 px-1 text-[8px] font-bold text-white/70">{meta.keyHint}</span>
         {ammo !== undefined && <span className="digits absolute -bottom-1 right-0 rounded bg-black/75 px-1 text-[9px] font-bold text-amber-200">×{ammo}</span>}
       </button>
@@ -666,7 +666,7 @@ export function Hud({
           {/* top-right controls */}
           <div className={`pointer-events-auto absolute flex flex-wrap gap-2 ${compact ? 'right-2 top-2 max-w-[40vw] justify-end' : 'right-4 top-4'}`}>
             <button onClick={onMute} className={iconBtn} style={{ width: iconSize, height: iconSize }} title="Sound">
-              {muted ? '🔇' : '🔊'}
+              <span className={muted ? 'opacity-40' : ''}>{muted ? 'SND ✕' : 'SND'}</span>
             </button>
             {touch && onZoomIn && (
               <button onClick={onZoomIn} className={iconBtn} style={{ width: iconSize, height: iconSize }} title="Zoom In [+]">
@@ -684,7 +684,7 @@ export function Hud({
               </button>
             )}
             <button onClick={onCamera} className={iconBtn} style={{ width: iconSize, height: iconSize }} title="Camera [C]">
-              🎥
+              <span className="digits text-[10px] font-black">CAM</span>
             </button>
             {onFullscreen && (
               <button onClick={onFullscreen} className={iconBtn} style={{ width: iconSize, height: iconSize }} title="Fullscreen [F11]">
@@ -782,14 +782,14 @@ export function Hud({
                   <div className="digits text-[8px] text-white/50 txt-shadow">CLICK / SPACE</div>
                 </div>
               </div>
-              <Ability icon="⚡" label="BOOST" hint="SHIFT" active={t.boosting} onDown={() => onKey('ShiftLeft', true)} onUp={() => onKey('ShiftLeft', false)} />
+              <Ability icon="ENG" label="BOOST" hint="SHIFT" active={t.boosting} onDown={() => onKey('ShiftLeft', true)} onUp={() => onKey('ShiftLeft', false)} />
               {t.hasPirates && (
-                <Ability icon="💦" label="HOSES" hint="E" fill={t.hosePressure} active={t.hoseOn} ringColor="#7dd3fc" onDown={() => onKey('KeyE', true)} onUp={() => onKey('KeyE', false)} />
+                <Ability icon="HOSE" label="HOSES" hint="E" fill={t.hosePressure} active={t.hoseOn} ringColor="#7dd3fc" onDown={() => onKey('KeyE', true)} onUp={() => onKey('KeyE', false)} />
               )}
-              <Ability icon="📡" label="LRAD" hint="F" fill={lradFill} badge={t.flareCd > 0 ? `${Math.ceil(t.flareCd)}` : undefined} size={56} onClick={onFlare} />
+              <Ability icon="LRAD" label="LRAD" hint="F" fill={lradFill} badge={t.flareCd > 0 ? `${Math.ceil(t.flareCd)}` : undefined} size={56} onClick={onFlare} />
               {t.hasPirates && (
                 <Ability
-                  icon="🚁"
+                  icon="HELO"
                   label="NAVY"
                   hint="V"
                   fill={navyFill}
@@ -800,7 +800,7 @@ export function Hud({
                   onClick={onNavy}
                 />
               )}
-              <Ability icon="📢" label="HORN" hint="H" onClick={onHorn} />
+              <Ability icon="HORN" label="HORN" hint="H" onClick={onHorn} />
             </div>
           )}
 
@@ -822,18 +822,18 @@ export function Hud({
                   </HoldButton>
                   <button onClick={() => onWeapon((t.weaponSlot + 1) % 3)} className="touch-btn digits rounded-lg border border-white/20 bg-black/45 px-2 py-1 text-[9px] tracking-wider text-cyan-100">
                     {SLOT_META[t.weaponSlot].name}
-                    {t.weaponSlot === 2 ? ` ×${t.missiles}` : ''} ⟳
+                    {t.weaponSlot === 2 ? ` ×${t.missiles}` : ''} WPN
                   </button>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   {t.hasPirates && (
-                    <Ability icon="💦" label="HOSE" fill={t.hosePressure} active={t.hoseOn} ringColor="#7dd3fc" size={46} onDown={() => onKey('KeyE', true)} onUp={() => onKey('KeyE', false)} />
+                    <Ability icon="HOSE" label="HOSE" fill={t.hosePressure} active={t.hoseOn} ringColor="#7dd3fc" size={46} onDown={() => onKey('KeyE', true)} onUp={() => onKey('KeyE', false)} />
                   )}
                   {t.hasPirates && (
-                    <Ability icon="🚁" label="NAVY" fill={navyFill} badge={navyBadge} disabled={t.navyState === 'used'} ringColor="#86efac" size={46} onClick={onNavy} />
+                    <Ability icon="HELO" label="NAVY" fill={navyFill} badge={navyBadge} disabled={t.navyState === 'used'} ringColor="#86efac" size={46} onClick={onNavy} />
                   )}
-                  <Ability icon="📡" label="LRAD" fill={lradFill} badge={t.flareCd > 0 ? `${Math.ceil(t.flareCd)}` : undefined} size={46} onClick={onFlare} />
-                  <Ability icon="⚡" label="BOOST" active={t.boosting} size={46} onDown={() => onKey('ShiftLeft', true)} onUp={() => onKey('ShiftLeft', false)} />
+                  <Ability icon="LRAD" label="LRAD" fill={lradFill} badge={t.flareCd > 0 ? `${Math.ceil(t.flareCd)}` : undefined} size={46} onClick={onFlare} />
+                  <Ability icon="ENG" label="BOOST" active={t.boosting} size={46} onDown={() => onKey('ShiftLeft', true)} onUp={() => onKey('ShiftLeft', false)} />
                 </div>
                 <div className="flex flex-col gap-2">
                   <HoldButton code="KeyW" onKey={onKey} className="h-[56px] w-[56px] text-[18px]">
