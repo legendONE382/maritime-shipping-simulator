@@ -1030,6 +1030,7 @@ export class Game {
       if (this.camMode !== CAMERA_MODES.indexOf('FREE')) {
         this.camMode = CAMERA_MODES.indexOf('FREE');
         if (this.camMode < 0) this.camMode = CAMERA_MODES.length - 1;
+        this.enterFreeCamera();
         this.toast('Camera · FREE', 'info');
       }
     }
@@ -1058,6 +1059,7 @@ export class Game {
       if (this.camMode !== CAMERA_MODES.indexOf('FREE')) {
         this.camMode = CAMERA_MODES.indexOf('FREE');
         if (this.camMode < 0) this.camMode = CAMERA_MODES.length - 1;
+        this.enterFreeCamera();
         this.toast('Camera · FREE', 'info');
       }
     }
@@ -1116,6 +1118,7 @@ export class Game {
       if (this.camMode !== CAMERA_MODES.indexOf('FREE')) {
         this.camMode = CAMERA_MODES.indexOf('FREE');
         if (this.camMode < 0) this.camMode = CAMERA_MODES.length - 1;
+        this.enterFreeCamera();
         this.toast('Camera · FREE', 'info');
       }
     }
@@ -1130,13 +1133,30 @@ export class Game {
     }
   };
 
+  /* Start a free-look from the camera's current position so there is no snap or
+   * "fly" when the player switches to it (especially on the first mobile touch). */
+  private enterFreeCamera() {
+    const ox = this.camera.position.x - this.pos.x;
+    const oz = this.camera.position.z - this.pos.y;
+    const oy = this.camera.position.y;
+    const dist = Math.hypot(ox, oy, oz);
+    let yaw = Math.atan2(oz, ox);
+    let pitch = Math.asin(THREE.MathUtils.clamp(oy / Math.max(dist, 1), -1, 1));
+    pitch = THREE.MathUtils.clamp(pitch, -1.2, 0.2);
+    this.camYaw = yaw;
+    this.camPitch = pitch;
+    this.camDist = THREE.MathUtils.clamp(dist, 80, 800);
+    this.camTargetYaw = yaw;
+    this.camTargetPitch = pitch;
+    this.camTargetDist = this.camDist;
+  }
+
   cycleCamera() {
     this.camModeManual = false;
     this.camMode = (this.camMode + 1) % CAMERA_MODES.length;
     const mode = CAMERA_MODES[this.camMode];
     if (mode === 'FREE') {
-      this.camTargetYaw = this.camYaw;
-      this.camTargetPitch = this.camPitch;
+      this.enterFreeCamera();
     }
     this.toast('Camera · ' + mode, 'info');
   }
@@ -1146,8 +1166,7 @@ export class Game {
     this.camMode = i % CAMERA_MODES.length;
     const mode = CAMERA_MODES[this.camMode];
     if (mode === 'FREE') {
-      this.camTargetYaw = this.camYaw;
-      this.camTargetPitch = this.camPitch;
+      this.enterFreeCamera();
     }
   }
 
