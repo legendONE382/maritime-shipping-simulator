@@ -10,7 +10,7 @@ import { PirateSystem, type NavyState, type WorldMarker } from './pirates';
 import { TrafficSystem } from './traffic';
 import { WildlifeSystem } from './wildlife';
 import { CombatSystem, WEAPONS, type CombatStats, type Target, type TargetKind } from './combat';
-import { DEFAULT_UPGRADES, EVENT_META, starsFor, type ChoiceOption, type EndStats, type MissionChoice, type MissionDef, type MissionEvent, type Upgrades } from './missions';
+import { DEFAULT_UPGRADES, EVENT_META, rateMission, starsFor, type ChoiceOption, type EndStats, type MissionChoice, type MissionDef, type MissionEvent, type Upgrades } from './missions';
 import { GENERIC_RADIO, RADIO, type Flags, type RadioCue } from './story';
 import { makePuffTexture, makeRainTexture } from './textures';
 
@@ -2445,7 +2445,7 @@ export class Game {
     } else {
       this.banner('VOYAGE LOST', reason, 'danger');
     }
-    this.cbs.onEnd({
+    const base: EndStats = {
       success,
       mission: m,
       stars: starsFor(m, success, cargoRatio, this.elapsed, hullRatio),
@@ -2474,7 +2474,11 @@ export class Game {
       maxChain: this.maxChain,
       choices: { ...this.choiceFlags },
       failReason: reason,
-    });
+      rating: 'F',
+      feedback: [],
+    };
+    const { rating, feedback } = rateMission(base);
+    this.cbs.onEnd({ ...base, rating, feedback });
   }
 
   /* ------------------------------------------------------------ camera -- */

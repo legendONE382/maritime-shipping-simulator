@@ -604,6 +604,46 @@ export function starsFor(m: MissionDef, success: boolean, cargo: number, time: n
   return s;
 }
 
+/* ------------------------------------------------------- performance rating */
+
+/** Letter rating for a completed voyage, plus plain-language feedback. */
+export function rateMission(s: EndStats): { rating: string; feedback: string[] } {
+  const m = s.mission;
+  const cargo = s.cargoDelivered;
+  const hull = s.hullLeft;
+  const ahead = s.timeTaken <= m.parTime;
+  const stars = s.stars;
+  const fb: string[] = [];
+  let rating = 'D';
+
+  if (!s.success) {
+    rating = 'F';
+    fb.push(s.failReason || 'Voyage lost.');
+    if (cargo < 0.5) fb.push('Cargo loss was severe — protect the hold next time.');
+    if (hull < 0.3) fb.push('Hull took heavy punishment — ease off in hazards.');
+    return { rating, feedback: fb };
+  }
+
+  if (stars === 3 && hull >= 0.9 && ahead && (s.rescued > 0 || s.attacksRepelled > 0)) rating = 'S';
+  else if (stars === 3) rating = 'A';
+  else if (stars === 2) rating = 'B';
+  else if (stars === 1) rating = 'C';
+  else rating = 'D';
+
+  if (cargo >= 0.98) fb.push('Cargo landed intact — excellent stewardship.');
+  else if (cargo < 0.8) fb.push(`Cargo delivered at ${(cargo * 100).toFixed(0)}% — loss cut the settlement.`);
+  if (ahead) fb.push(`Beat the par time by ${Math.floor((m.parTime - s.timeTaken) / 60)}m.`);
+  else fb.push(`Finished ${Math.floor((s.timeTaken - m.parTime) / 60)}m over par — a steadier pace helps.`);
+  if (hull >= 0.9) fb.push('Hull held up well in class.');
+  else if (hull < 0.6) fb.push('Hull took serious damage — slow down in storms and hazards.');
+  if (s.rescued > 0) fb.push(`${s.rescued} survivor(s) rescued — well done.`);
+  if (s.attacksRepelled > 0) fb.push(`${s.attacksRepelled} attack(s) repelled.`);
+  if (s.boarded > 0) fb.push(`${s.boarded} boarding(s) succeeded — keep skiffs off the rails.`);
+  if (s.whaleStrikes > 0) fb.push(`${s.whaleStrikes} whale strike(s) — slow down for pods.`);
+  if (fb.length === 0) fb.push('Solid, workmanlike passage.');
+  return { rating, feedback: fb };
+}
+
 /* ---------------------------------------------------------- achievements */
 
 export interface Achievement {
@@ -697,4 +737,6 @@ export interface EndStats {
   maxChain: number;
   choices: Record<string, string>;
   failReason: string;
+  rating: string;
+  feedback: string[];
 }
