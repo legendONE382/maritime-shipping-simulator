@@ -2523,7 +2523,7 @@ export class Game {
         const dx = cy * cp * this.camDist;
         const dy = sp * this.camDist;
         const dz = sy * cp * this.camDist;
-        want = new THREE.Vector3(this.pos.x + dx, this.pos.y + dy + heave * 0.2, this.pos.y + dz);
+        want = new THREE.Vector3(this.pos.x + dx, dy + heave * 0.2, this.pos.y + dz);
         look = new THREE.Vector3(this.pos.x + fx * 60, this.shipTilt.position.y + 15, this.pos.y + fy * 60);
       }
       const k = idle ? Math.min(1, dt * 2) : Math.min(1, dt * (mode === 'BRIDGE' ? 6 : (mode === 'FREE' ? 4 : 2.8)));
