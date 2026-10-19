@@ -224,7 +224,7 @@ function MarkerView({ mk, compact }: { mk: Marker; compact: boolean }) {
   if (off) {
     return (
       <div className="absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center" style={{ left, top }}>
-        <div className={`text-[20px] leading-none ${pulse}`} style={{ color: st.color, transform: `rotate(${angle}deg)`, textShadow: `0 0 10px ${st.color}` }}>
+        <div className={`text-[24px] leading-none ${pulse}`} style={{ color: st.color, transform: `rotate(${angle}deg)`, textShadow: `0 0 10px ${st.color}` }}>
           ➤
         </div>
         <div className="digits mt-0.5 text-[9px] tracking-wider txt-shadow" style={{ color: st.color }}>
@@ -853,8 +853,8 @@ export function Hud({
               </div>
               <div className="pointer-events-auto absolute bottom-4 right-3 flex items-end gap-3">
                 <div className="flex flex-col items-center gap-2">
-                  <HoldButton code="KeyX" onKey={onKey} className="h-[72px] w-[72px] border-red-300/40 bg-red-500/15 text-[26px] active:bg-red-400/30">
-                    <SvgIcon paths={ICONS[t.weaponSlot === 2 ? 'MSL' : t.weaponSlot === 1 ? 'CIWS' : 'GUN']} size={28} className="mx-auto text-red-100" />
+                  <HoldButton code="KeyX" onKey={onKey} className="h-[52px] w-[52px] border-red-300/35 bg-red-500/12 text-[20px] active:bg-red-400/20">
+                    <SvgIcon paths={ICONS[t.weaponSlot === 2 ? 'MSL' : t.weaponSlot === 1 ? 'CIWS' : 'GUN']} size={22} className="mx-auto text-red-100/90" />
                   </HoldButton>
                   <button onClick={() => onWeapon((t.weaponSlot + 1) % 3)} className="touch-btn digits rounded-lg border border-white/20 bg-black/45 px-2 py-1 text-[9px] tracking-wider text-cyan-100">
                     {SLOT_META[t.weaponSlot].name}

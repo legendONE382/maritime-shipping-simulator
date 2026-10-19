@@ -10,7 +10,7 @@ import { PirateSystem, type NavyState, type WorldMarker } from './pirates';
 import { TrafficSystem } from './traffic';
 import { WildlifeSystem } from './wildlife';
 import { CombatSystem, WEAPONS, type CombatStats, type Target, type TargetKind } from './combat';
-import { DEFAULT_UPGRADES, EVENT_META, starsFor, type ChoiceOption, type EndStats, type MissionChoice, type MissionDef, type MissionEvent, type Upgrades } from './missions';
+import { DEFAULT_UPGRADES, EVENT_META, rateMission, starsFor, type ChoiceOption, type EndStats, type MissionChoice, type MissionDef, type MissionEvent, type Upgrades } from './missions';
 import { GENERIC_RADIO, RADIO, type Flags, type RadioCue } from './story';
 import { makePuffTexture, makeRainTexture } from './textures';
 
@@ -1030,6 +1030,7 @@ export class Game {
       if (this.camMode !== CAMERA_MODES.indexOf('FREE')) {
         this.camMode = CAMERA_MODES.indexOf('FREE');
         if (this.camMode < 0) this.camMode = CAMERA_MODES.length - 1;
+        this.enterFreeCamera();
         this.toast('Camera · FREE', 'info');
       }
     }
@@ -1058,6 +1059,7 @@ export class Game {
       if (this.camMode !== CAMERA_MODES.indexOf('FREE')) {
         this.camMode = CAMERA_MODES.indexOf('FREE');
         if (this.camMode < 0) this.camMode = CAMERA_MODES.length - 1;
+        this.enterFreeCamera();
         this.toast('Camera · FREE', 'info');
       }
     }
@@ -1116,6 +1118,7 @@ export class Game {
       if (this.camMode !== CAMERA_MODES.indexOf('FREE')) {
         this.camMode = CAMERA_MODES.indexOf('FREE');
         if (this.camMode < 0) this.camMode = CAMERA_MODES.length - 1;
+        this.enterFreeCamera();
         this.toast('Camera · FREE', 'info');
       }
     }
@@ -1130,13 +1133,30 @@ export class Game {
     }
   };
 
+  /* Start a free-look from the camera's current position so there is no snap or
+   * "fly" when the player switches to it (especially on the first mobile touch). */
+  private enterFreeCamera() {
+    const ox = this.camera.position.x - this.pos.x;
+    const oz = this.camera.position.z - this.pos.y;
+    const oy = this.camera.position.y;
+    const dist = Math.hypot(ox, oy, oz);
+    let yaw = Math.atan2(oz, ox);
+    let pitch = Math.asin(THREE.MathUtils.clamp(oy / Math.max(dist, 1), -1, 1));
+    pitch = THREE.MathUtils.clamp(pitch, -1.2, 0.2);
+    this.camYaw = yaw;
+    this.camPitch = pitch;
+    this.camDist = THREE.MathUtils.clamp(dist, 80, 800);
+    this.camTargetYaw = yaw;
+    this.camTargetPitch = pitch;
+    this.camTargetDist = this.camDist;
+  }
+
   cycleCamera() {
     this.camModeManual = false;
     this.camMode = (this.camMode + 1) % CAMERA_MODES.length;
     const mode = CAMERA_MODES[this.camMode];
     if (mode === 'FREE') {
-      this.camTargetYaw = this.camYaw;
-      this.camTargetPitch = this.camPitch;
+      this.enterFreeCamera();
     }
     this.toast('Camera · ' + mode, 'info');
   }
@@ -1146,8 +1166,7 @@ export class Game {
     this.camMode = i % CAMERA_MODES.length;
     const mode = CAMERA_MODES[this.camMode];
     if (mode === 'FREE') {
-      this.camTargetYaw = this.camYaw;
-      this.camTargetPitch = this.camPitch;
+      this.enterFreeCamera();
     }
   }
 
@@ -2445,7 +2464,7 @@ export class Game {
     } else {
       this.banner('VOYAGE LOST', reason, 'danger');
     }
-    this.cbs.onEnd({
+    const base: EndStats = {
       success,
       mission: m,
       stars: starsFor(m, success, cargoRatio, this.elapsed, hullRatio),
@@ -2474,7 +2493,11 @@ export class Game {
       maxChain: this.maxChain,
       choices: { ...this.choiceFlags },
       failReason: reason,
-    });
+      rating: 'F',
+      feedback: [],
+    };
+    const { rating, feedback } = rateMission(base);
+    this.cbs.onEnd({ ...base, rating, feedback });
   }
 
   /* ------------------------------------------------------------ camera -- */

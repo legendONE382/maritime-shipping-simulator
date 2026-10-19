@@ -22,6 +22,15 @@ const DIFF_COLOR: Record<string, string> = {
   Extreme: 'text-red-300 border-red-400/40 bg-red-500/10',
 };
 
+const RATING_COLOR: Record<string, string> = {
+  S: 'text-emerald-300',
+  A: 'text-cyan-300',
+  B: 'text-amber-300',
+  C: 'text-orange-300',
+  D: 'text-red-300',
+  F: 'text-red-400',
+};
+
 const PRIMARY =
   'digits relative overflow-hidden rounded-md bg-gradient-to-r from-cyan-400 to-emerald-300 font-bold tracking-[0.2em] text-[#04202c] transition hover:brightness-110 active:scale-[0.98]';
 const GHOST = 'digits rounded-md border border-white/15 tracking-widest text-slate-200 transition hover:bg-white/10';
@@ -632,6 +641,9 @@ export function Results({
               {!stats.success && <div className="mt-1 text-[12px] text-red-200/80">{stats.failReason}</div>}
             </div>
             {stats.mission.kind === 'story' && <Stars n={stats.stars} size="text-[30px] md:text-[38px]" animate />}
+            <div className={`digits mt-2 text-[13px] font-bold tracking-tight ${RATING_COLOR[stats.rating] ?? 'text-slate-400'}`}>
+              PERFORMANCE {stats.rating}
+            </div>
           </div>
 
           {rankUp && (
@@ -704,6 +716,16 @@ export function Results({
                 ))}
                 {stats.success && stats.stars < 3 && stats.mission.kind === 'story' && (
                   <div className="pt-1 text-[10px] text-amber-200/70">3★ needs ≥90% cargo, ≥45% hull and arrival under par time.</div>
+                )}
+                {stats.feedback.length > 0 && (
+                  <div className="mt-2 space-y-0.5">
+                    <div className="label mb-1">Assessor's notes</div>
+                    {stats.feedback.map((f) => (
+                      <div key={f} className="text-[10px] text-slate-300/90">
+                        · {f}
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
             </div>
