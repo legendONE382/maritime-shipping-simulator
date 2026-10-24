@@ -20,7 +20,7 @@ import { Briefing, MainMenu, Paused, Results } from './ui/Screens';
 import { ChoicePanel, StoryScene } from './ui/StoryScene';
 
 type Phase = 'menu' | 'story' | 'brief' | 'play' | 'paused' | 'result';
-const SAVE_KEY = 'master-of-the-sea-v3';
+const SAVE_KEY = 'oceanic-horizons-v1';
 
 interface StoryState {
   kicker: string;

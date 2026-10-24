@@ -303,8 +303,8 @@ export class Game {
   private funnelTop: THREE.Object3D | null = null;
   private nightLights: THREE.Sprite[] = [];
   private sun = new THREE.Vector3();
-  private dirLight = new THREE.DirectionalLight(0xfff2dd, 3.2);
-  private hemi = new THREE.HemisphereLight(0x9fc4e0, 0x0a1a24, 0.18);
+  private dirLight = new THREE.DirectionalLight(0xfff2dd, 3.8);
+  private hemi = new THREE.HemisphereLight(0x9fc4e0, 0x0a1a24, 0.25);
   private shipTmp = new THREE.Vector3();
   private clock = new THREE.Clock();
   private fog = new THREE.FogExp2(0x9fc4e0, 0.00016);
@@ -448,11 +448,10 @@ export class Game {
     const coarse = window.matchMedia('(pointer: coarse)').matches;
     this.lowSpec = coarse || container.clientWidth < 900;
 
-    // render straight to the drawing buffer: hardware MSAA keeps edges crisp and there is no
-    // full-screen post pass left to soften the image or burn battery
+    // render straight to the drawing buffer
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance', stencil: false });
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 0.78;
+    this.renderer.toneMappingExposure = 0.85; // Brighter, more cinematic
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     if (!this.lowSpec) this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     container.appendChild(this.renderer.domElement);
@@ -519,7 +518,7 @@ export class Game {
 
   private applyFov() {
     const aspect = this.camera.aspect;
-    this.baseFov = aspect < 0.9 ? 80 : aspect < 1.4 ? 68 : 58;
+    this.baseFov = aspect < 0.9 ? 85 : aspect < 1.4 ? 72 : 62;
   }
 
   /**
@@ -775,6 +774,14 @@ export class Game {
       const rock = buildRock(3 + R() * 2.5);
       rock.position.set(c.x, 0, c.y + (R() < 0.5 ? -1 : 1) * (1700 + R() * 900));
       this.world.add(rock);
+    }
+
+    // Add more dramatic islands and landmarks
+    for (let i = 0; i < 4; i++) {
+      const c = this.routePoint(0.15 + R() * 0.7);
+      const island = buildRock(4.5 + R() * 3);
+      island.position.set(c.x + (R()-0.5)*600, 0, c.y + (R()<0.5 ? -1:1)*(2800 + R()*1200));
+      this.world.add(island);
     }
 
     // ambient hazards off the track

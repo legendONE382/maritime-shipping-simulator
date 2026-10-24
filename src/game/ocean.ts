@@ -6,18 +6,18 @@ const NW = 8;
 /** Objects on this layer draw in the main view but are skipped by the reflection camera. */
 export const SURFACE_LAYER = 1;
 const WIND = 2.58; // direction the swell travels (radians)
-const TIME_SCALE = 0.9;
+const TIME_SCALE = 1.15; // More dynamic waves
 
 /** Wave train: angle off the wind, wavelength (m) and relative amplitude. */
 const WAVE_DEFS = [
-  { a: 0.0, L: 230, A: 1.0 },
-  { a: 0.38, L: 152, A: 0.78 },
-  { a: -0.55, L: 99, A: 0.58 },
-  { a: 0.95, L: 62, A: 0.36 },
-  { a: -1.05, L: 39, A: 0.22 },
-  { a: 0.18, L: 24, A: 0.13 },
-  { a: -0.25, L: 15, A: 0.075 },
-  { a: 1.35, L: 9.5, A: 0.045 },
+  { a: 0.0, L: 280, A: 1.4 },
+  { a: 0.38, L: 188, A: 1.0 },
+  { a: -0.55, L: 128, A: 0.78 },
+  { a: 0.95, L: 84, A: 0.52 },
+  { a: -1.05, L: 56, A: 0.34 },
+  { a: 0.18, L: 36, A: 0.22 },
+  { a: -0.25, L: 24, A: 0.14 },
+  { a: 1.35, L: 16, A: 0.09 },
 ];
 
 interface Wave {
